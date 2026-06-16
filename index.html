@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comparateur TNS / Dirigeant Salarié — Hexassur</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
+.topbar{background:#082C38;color:#fff;padding:14px 32px;display:flex;justify-content:space-between;align-items:center}
+.topbar h1{font-size:18px;font-weight:700;letter-spacing:.02em}
+.topbar span{font-size:12px;opacity:.7}
+.container{max-width:1100px;margin:0 auto;padding:24px 20px}
+.card{background:#fff;border-radius:10px;border:1px solid #E0E4E8;padding:20px 24px;margin-bottom:18px}
+.card-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#082C38;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:12px}
+.field label{display:block;font-size:11px;color:#666;margin-bottom:4px;font-weight:600}
+.field input,.field select{width:100%;height:36px;padding:0 10px;border:1px solid #CBD5E0;border-radius:6px;font-size:13px;background:#fff;color:#222}
+.field input:focus,.field select:focus{outline:none;border-color:#082C38}
+
+/* Import zone */
+.import-zone{border:2px dashed #CBD5E0;border-radius:8px;padding:28px;text-align:center;cursor:pointer;position:relative;transition:all .2s;background:#FAFBFC}
+.import-zone:hover{border-color:#082C38;background:#F0F4F7}
+.import-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.import-zone .iz-icon{font-size:32px;margin-bottom:8px}
+.import-zone .iz-label{font-size:13px;color:#555}
+.import-zone .iz-label strong{color:#082C38}
+.import-zone .iz-sub{font-size:11px;color:#999;margin-top:4px}
+.import-ok{background:#EAF5EE;border:1px solid #A8D5B5;border-radius:8px;padding:12px 16px;margin-top:10px}
+.import-ok .ok-title{font-weight:700;color:#1E6E3E;font-size:13px;margin-bottom:8px}
+.import-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px}
+.import-item{background:#fff;border:1px solid #D0E8DA;border-radius:6px;padding:8px 10px}
+.import-item .ik{font-size:10px;color:#666;margin-bottom:2px}
+.import-item .iv{font-size:13px;font-weight:700;color:#082C38}
+.import-err{background:#FBDADA;border:1px solid #E0A0A0;border-radius:8px;padding:12px 16px;margin-top:10px;color:#8B1A1A;font-size:13px}
+
+/* Tabs */
+.tabs{display:flex;border-bottom:2px solid #E0E4E8;margin-bottom:20px}
+.tab-btn{padding:10px 20px;cursor:pointer;font-size:13px;font-weight:600;color:#666;border:none;background:none;border-bottom:3px solid transparent;margin-bottom:-2px}
+.tab-btn.active{color:#082C38;border-bottom-color:#082C38}
+.tab-panel{display:none}.tab-panel.active{display:block}
+
+/* Metrics */
+.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px}
+.met{background:#F4F6F8;border-radius:8px;padding:12px 14px;border:1px solid #E0E4E8}
+.met .ml{font-size:10px;color:#666;margin-bottom:4px;font-weight:600;text-transform:uppercase}
+.met .mv{font-size:20px;font-weight:700;color:#082C38}
+.met .ms{font-size:11px;margin-top:2px;color:#888}
+.green{color:#1E6E3E}.red{color:#8B1A1A}
+
+/* Verdict */
+.verdict{border-radius:8px;padding:14px 18px;margin-bottom:16px;border-left:5px solid}
+.verdict.ok{background:#EAF5EE;border-color:#1E6E3E}
+.verdict.ko{background:#FBDADA;border-color:#8B1A1A}
+.verdict .vt{font-weight:700;font-size:15px;margin-bottom:4px}
+.verdict .vs{font-size:13px;color:#444}
+
+/* Comp cards */
+.comp{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.ccard{border:1px solid #E0E4E8;border-radius:10px;overflow:hidden}
+.ccard.active{border:2px solid #082C38}
+.ccard-head{background:#082C38;color:#fff;padding:10px 16px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.ccard-head.tns{background:#1E6E3E}
+.cline{display:flex;justify-content:space-between;padding:6px 14px;border-bottom:1px solid #F0F0F0;font-size:12px}
+.cline:last-child{border-bottom:none}
+.cline .cn{color:#666;flex:1}
+.cline .cv{font-weight:600;color:#222;white-space:nowrap}
+.cline.sh{background:#F8FAFB}
+.cline.sh .cn{font-weight:700;color:#082C38;font-size:11px;text-transform:uppercase}
+.cline.tot{background:#F0F4F7}
+.cline.tot .cn,.cline.tot .cv{font-weight:700;font-size:13px;color:#082C38}
+
+/* Plafonds */
+.plaf-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.plaf-card{border:1px solid #E0E4E8;border-radius:8px;padding:14px 16px}
+.plaf-card .pc-label{font-size:11px;color:#666;margin-bottom:4px;font-weight:600}
+.plaf-card .pc-val{font-size:20px;font-weight:700;color:#082C38;margin-bottom:2px}
+.plaf-card .pc-formula{font-size:10px;color:#999;margin-bottom:8px}
+.plaf-card .pc-status{font-size:12px;font-weight:700}
+.plaf-card .pc-cap{font-size:11px;color:#555;margin-top:4px}
+.ok-text{color:#1E6E3E}.ko-text{color:#8B1A1A}
+
+/* Retraite */
+.ret-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+
+/* Note */
+.note{font-size:11px;color:#888;font-style:italic;border-left:3px solid #CBD5E0;padding:8px 12px;margin-top:8px;line-height:1.6}
+
+/* Bouton export */
+.export-bar{display:flex;justify-content:flex-end;margin-bottom:20px;gap:10px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:all .15s}
+.btn-primary{background:#082C38;color:#fff}
+.btn-primary:hover{background:#0A3D4F}
+.btn-secondary{background:#fff;color:#082C38;border:1px solid #082C38}
+.btn-secondary:hover{background:#F0F4F7}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* Séparateur */
+.sep{border:none;border-top:1px solid #E8ECF0;margin:18px 0}
+
+/* Responsive */
+@media(max-width:780px){
+  .grid3,.metrics{grid-template-columns:1fr 1fr}
+  .comp,.ret-grid{grid-template-columns:1fr}
+  .plaf-grid{grid-template-columns:1fr 1fr}
+  .metrics{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>⚖ Comparateur TNS / Dirigeant Salarié</h1>
+  <span>HEXASSUR — PASS 2026 = 48 060 € — Taux SSI 2026</span>
+</div>
+
+<div class="container">
+
+  <!-- IMPORT -->
+  <div class="card">
+    <div class="card-title">📂 Import Silae Expert — Détail des cotisations annuelles</div>
+    <div class="import-zone" id="drop-zone">
+      <input type="file" id="file-input" accept=".xlsx,.xls">
+      <div class="iz-icon">📊</div>
+      <div class="iz-label"><strong>Déposer le fichier Excel Silae</strong> ou cliquer pour parcourir</div>
+      <div class="iz-sub">Format attendu : Détail des cotisations annuelles (.xlsx) — colonnes Code, Salarial, Patronal</div>
+    </div>
+    <div id="import-result"></div>
+  </div>
+
+  <!-- SAISIE -->
+  <div class="card">
+    <div class="card-title">👤 Situation actuelle — Dirigeant salarié</div>
+    <div class="grid3">
+      <div class="field"><label>Nom du dirigeant</label><input type="text" id="nom" placeholder="Nom Prénom"></div>
+      <div class="field"><label>Salaire brut annuel (€)</label><input type="number" id="brut" value="60168" step="100"></div>
+      <div class="field"><label>Coût total société — social (€)</label><input type="number" id="cout_total" value="87819" step="100"></div>
+    </div>
+    <div class="grid3">
+      <div class="field"><label>Retraite collective — total (€/an)</label><input type="number" id="ret_coll" value="8140" step="100"></div>
+      <div class="field"><label>Prévoyance collective — total (€/an)</label><input type="number" id="prev_coll" value="2573" step="100"></div>
+      <div class="field"><label>Santé collective — total (€/an)</label><input type="number" id="sante_coll" value="1526" step="100"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🏢 Projection TNS (cible)</div>
+    <div class="grid3">
+      <div class="field"><label>Forme juridique cible</label>
+        <select id="forme_tns">
+          <option value="sarl">SARL — Gérant majoritaire</option>
+          <option value="eurl">EURL — Gérant</option>
+        </select>
+      </div>
+      <div class="field"><label>Exonération ACRE ?</label>
+        <select id="acre"><option value="0">Non</option><option value="1">Oui (1ère année)</option></select>
+      </div>
+      <div class="field"><label>PER / Madelin retraite (€/an)</label><input type="number" id="madelin_ret" value="3000" step="100"></div>
+    </div>
+    <div class="grid3">
+      <div class="field"><label>Prévoyance individuelle Madelin (€/an)</label><input type="number" id="madelin_prev" value="2000" step="100"></div>
+      <div class="field"><label>Santé individuelle (€/an)</label><input type="number" id="sante_ind" value="2400" step="100"></div>
+      <div class="field"><label>Madelin chômage (€/an)</label><input type="number" id="madelin_cho" value="0" step="100"></div>
+    </div>
+  </div>
+
+  <!-- EXPORT BAR -->
+  <div class="export-bar">
+    <button class="btn btn-secondary" onclick="resetForm()">🔄 Réinitialiser</button>
+    <button class="btn btn-primary" id="btn-export" onclick="exportWord()">📄 Exporter la synthèse Word</button>
+  </div>
+
+  <!-- RÉSULTATS -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showTab('comp',this)">Comparateur charges</button>
+    <button class="tab-btn" onclick="showTab('madelin',this)">Plafonds PER / Madelin</button>
+    <button class="tab-btn" onclick="showTab('ret',this)">Retraite</button>
+  </div>
+
+  <div id="tab-comp" class="tab-panel active">
+    <div class="metrics" id="metrics"></div>
+    <div class="verdict" id="verdict"></div>
+    <div class="comp" id="comp-cards"></div>
+    <div class="note" id="note-comp"></div>
+  </div>
+
+  <div id="tab-madelin" class="tab-panel">
+    <div class="plaf-grid" id="plaf-grid"></div>
+    <div class="card" id="cap-grid" style="margin-bottom:12px"></div>
+    <div class="note" id="note-madelin"></div>
+  </div>
+
+  <div id="tab-ret" class="tab-panel">
+    <div class="ret-grid" id="ret-cards"></div>
+    <div class="note" id="note-ret"></div>
+  </div>
+
+</div>
+
+<script>
+// ── Constantes ──────────────────────────────────────────────────────────────
+const PASS = 48060;
+const SMIC_AN = 20004;
+
+function fmt(n){ return Math.round(n).toLocaleString('fr-FR') + ' €'; }
+function pct(n){ return (Math.round(n*10)/10).toFixed(1) + ' %'; }
+function v(id){ return parseFloat(document.getElementById(id).value) || 0; }
+function sv(id){ return document.getElementById(id).value; }
+
+// ── Parseur Silae ────────────────────────────────────────────────────────────
+const RET_CODES  = ['AA201','AA202','AA211','AA212','AA221','AA222','AA031','AA035'];
+const PREV_CODES = ['PR001','PR010','PR250','PR252','PS010','PS020'];
+const SANTE_CODES= ['PS079'];
+
+function parseSilae(wb){
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+  let nom='', periode='';
+  let brut=0, tot_sal=0, tot_pat=0;
+  let ret_sal=0, ret_pat=0, prev_sal=0, prev_pat=0, sante_sal=0, sante_pat=0;
+  let basesSal=[];
+
+  // Titre ligne 0
+  if(rows[0] && rows[0][0]){
+    const t = String(rows[0][0]);
+    const mn = t.match(/Détail des cotisations\s*-\s*(.+?)\s*-\s*De/i);
+    if(mn) nom = mn[1].trim();
+    const mp = t.match(/De\s+(.+?)\s+à\s+(.+?)(\s*$)/i);
+    if(mp) periode = mp[1] + ' → ' + mp[2].trim();
+  }
+
+  // Header row
+  let hr = -1;
+  for(let i=0;i<rows.length;i++){ if(rows[i][0]==='Code'){hr=i;break;} }
+  if(hr<0) return null;
+
+  const C = {code:0,lib:1,sal:5,pat:8};
+
+  for(let i=hr+1;i<rows.length;i++){
+    const r = rows[i];
+    const code = String(r[C.code]||'').trim();
+    const lib  = String(r[C.lib ]||'');
+    const sal  = parseFloat(r[C.sal])||0;
+    const pat  = parseFloat(r[C.pat])||0;
+    const baseP= parseFloat(r[6])||0;
+    const baseS= parseFloat(r[3])||0;
+
+    if(code==='') continue;
+    if(lib.includes('Total des charges')){ tot_sal=sal||tot_sal; tot_pat=pat||tot_pat; }
+    if(code==='SS003'||code==='SS004') basesSal.push(baseP||baseS);
+    if(RET_CODES.includes(code))  { ret_sal+=sal;   ret_pat+=pat; }
+    if(PREV_CODES.includes(code)) { prev_sal+=sal;  prev_pat+=pat; }
+    if(SANTE_CODES.includes(code)){ sante_sal+=sal; sante_pat+=pat; }
+  }
+
+  brut = basesSal.length ? Math.max(...basesSal.filter(x=>x>0)) : 0;
+  return {
+    nom, periode,
+    brut:       Math.round(brut),
+    tot_sal:    Math.round(tot_sal),
+    tot_pat:    Math.round(tot_pat),
+    cout_total: Math.round(brut + tot_pat),
+    ret_coll:   Math.round(ret_sal  + ret_pat),
+    prev_coll:  Math.round(prev_sal + prev_pat),
+    sante_coll: Math.round(sante_sal+ sante_pat),
+  };
+}
+
+function applyImport(data){
+  document.getElementById('nom').value       = data.nom        || '';
+  document.getElementById('brut').value      = data.brut       || 0;
+  document.getElementById('cout_total').value= data.cout_total || 0;
+  document.getElementById('ret_coll').value  = data.ret_coll   || 0;
+  document.getElementById('prev_coll').value = data.prev_coll  || 0;
+  document.getElementById('sante_coll').value= data.sante_coll || 0;
+
+  document.getElementById('import-result').innerHTML = `
+    <div class="import-ok">
+      <div class="ok-title">✅ Import réussi — ${data.nom||'Dirigeant'} ${data.periode?'('+data.periode+')':''}</div>
+      <div class="import-grid">
+        <div class="import-item"><div class="ik">Brut annuel</div><div class="iv">${fmt(data.brut)}</div></div>
+        <div class="import-item"><div class="ik">Charges patronales</div><div class="iv">${fmt(data.tot_pat)}</div></div>
+        <div class="import-item"><div class="ik">Coût total société</div><div class="iv">${fmt(data.cout_total)}</div></div>
+        <div class="import-item"><div class="ik">Retraite collective</div><div class="iv">${fmt(data.ret_coll)}</div></div>
+        <div class="import-item"><div class="ik">Prévoyance collective</div><div class="iv">${fmt(data.prev_coll)}</div></div>
+        <div class="import-item"><div class="ik">Santé collective</div><div class="iv">${fmt(data.sante_coll)}</div></div>
+      </div>
+      <div style="font-size:11px;color:#666;margin-top:8px">Les champs ont été pré-remplis. Tu peux les ajuster si nécessaire.</div>
+    </div>`;
+  compute();
+}
+
+document.getElementById('file-input').addEventListener('change', function(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    try{
+      const wb = XLSX.read(ev.target.result, {type:'binary'});
+      const data = parseSilae(wb);
+      if(data) applyImport(data);
+      else document.getElementById('import-result').innerHTML =
+        '<div class="import-err">❌ Format non reconnu. Vérifier que le fichier est bien un "Détail des cotisations annuelles" Silae Expert.</div>';
+    }catch(err){
+      document.getElementById('import-result').innerHTML =
+        `<div class="import-err">❌ Erreur de lecture : ${err.message}</div>`;
+    }
+  };
+  reader.readAsBinaryString(file);
+});
+
+// ── Calculs ──────────────────────────────────────────────────────────────────
+function ssi(rev, acre){
+  const a = acre ? 0.5 : 1;
+  const tr_a = Math.min(rev, 5*PASS);
+  const mal  = tr_a * 0.0589 * a;
+  const ij   = tr_a * 0.005  * a;
+  const vb   = rev  * 0.1775 * a;
+  const vc1  = Math.min(rev, PASS)                           * 0.07;
+  const vc2  = Math.max(0, Math.min(rev, 4*PASS) - PASS)    * 0.08;
+  const inv  = rev  * 0.013  * a;
+  const csg  = rev  * 0.068;
+  const crds = rev  * 0.029;
+  const cfp  = PASS * 0.0029;
+  return { mal, ij, vb, vc1, vc2, inv, csg, crds, cfp,
+    vie: vb+vc1+vc2,
+    total: mal+ij+vb+vc1+vc2+inv+csg+crds+cfp };
+}
+
+function salCot(brut){
+  const p=Math.min(brut,PASS), t1=Math.min(brut,PASS), t2=Math.max(0,Math.min(brut,8*PASS)-PASS);
+  const ts = p*0.069 + brut*0.004 + brut*0.068 + brut*0.029
+           + t1*0.0315 + t2*0.0864 + t1*0.0086 + t2*0.0108 + brut*0.0014;
+  const tp = brut*0.13 + brut*0.0525 + p*0.0855 + brut*0.0202
+           + t1*0.0472 + t2*0.1295 + t1*0.0129 + t2*0.0162 + brut*0.0021
+           + brut*0.04 + brut*0.0025 + brut*0.008;
+  return { tot_sal:ts, tot_pat:tp, net:brut-ts,
+           ret_sal: t1*0.0315+t2*0.0864, ret_pat: t1*0.0472+t2*0.1295 };
+}
+
+function plafonds(revNet){
+  const bi = revNet;
+  return {
+    prev_max: bi*0.0375 + PASS*0.07,
+    cho_max:  PASS*0.025,
+    ret_max:  Math.max(PASS*0.10, bi*0.10 + Math.max(0, Math.min(bi,8*PASS)-PASS)*0.15)
+  };
+}
+
+// ── Résultats globaux (partagés entre compute + export) ─────────────────────
+let R = {};
+
+function compute(){
+  const brut        = v('brut'), cout_total = v('cout_total');
+  const ret_coll    = v('ret_coll'), prev_coll = v('prev_coll'), sante_coll = v('sante_coll');
+  const madelin_ret = v('madelin_ret'), madelin_prev = v('madelin_prev');
+  const sante_ind   = v('sante_ind'), madelin_cho = v('madelin_cho');
+  const acre        = sv('acre') === '1';
+  const nom         = sv('nom') || 'Dirigeant';
+
+  const sal = salCot(brut);
+  const net_sal = sal.net;
+  const cout_sal_reel = cout_total + ret_coll + prev_coll + sante_coll;
+  const madelin_total = madelin_ret + madelin_prev + madelin_cho;
+
+  // Itération SSI
+  let rev = cout_total * 0.70;
+  for(let i=0;i<30;i++){ const c=ssi(rev,acre); rev=cout_total-c.total-madelin_total-sante_ind; }
+  const tns_net = rev;
+  const tns_cot = ssi(tns_net, acre);
+  const cout_tns_reel = tns_cot.total + madelin_total + sante_ind + tns_net;
+
+  const diff_net  = tns_net - net_sal;
+  const diff_cout = cout_tns_reel - cout_sal_reel;
+  const avantage  = -diff_cout;
+  const pl = plafonds(tns_net);
+  const cap_ret  = Math.max(0, pl.ret_max  - madelin_ret);
+  const cap_prev = Math.max(0, pl.prev_max - madelin_prev);
+  const cap_cho  = Math.max(0, pl.cho_max  - madelin_cho);
+  const trim_tns = tns_net >= PASS ? 4 : tns_net >= PASS*0.75 ? 3 : tns_net >= PASS*0.5 ? 2 : 1;
+
+  // Stocker pour export
+  R = { nom, brut, cout_total, ret_coll, prev_coll, sante_coll,
+        madelin_ret, madelin_prev, madelin_cho, sante_ind, madelin_total, acre,
+        sal, net_sal, cout_sal_reel,
+        tns_net, tns_cot, cout_tns_reel,
+        diff_net, diff_cout, avantage, pl, cap_ret, cap_prev, cap_cho, trim_tns };
+
+  // ── Métriques
+  document.getElementById('metrics').innerHTML = `
+    <div class="met"><div class="ml">Net salarié</div><div class="mv">${fmt(net_sal)}</div><div class="ms">après cotis. sal.</div></div>
+    <div class="met"><div class="ml">Net TNS projeté</div><div class="mv">${fmt(tns_net)}</div><div class="ms ${diff_net>=0?'green':'red'}">${diff_net>=0?'+':''}${fmt(diff_net)}</div></div>
+    <div class="met"><div class="ml">Coût total salarié</div><div class="mv">${fmt(cout_sal_reel)}</div><div class="ms">social + contrats</div></div>
+    <div class="met"><div class="ml">Coût total TNS</div><div class="mv">${fmt(cout_tns_reel)}</div><div class="ms">SSI + contrats indiv.</div></div>
+    <div class="met"><div class="ml">${avantage>=0?'Économie TNS':'Surcoût TNS'}</div>
+      <div class="mv ${avantage>=0?'green':'red'}">${fmt(Math.abs(avantage))}</div>
+      <div class="ms">par an vs salarié</div></div>`;
+
+  // ── Verdict
+  const vEl = document.getElementById('verdict');
+  vEl.className = 'verdict ' + (avantage>=0?'ok':'ko');
+  vEl.innerHTML = `
+    <div class="vt">${avantage>=0?'✅ Le statut TNS est plus avantageux':'⚠️ Le statut salarié reste moins coûteux'}</div>
+    <div class="vs">${avantage>=0
+      ? `Économie annuelle de <strong>${fmt(avantage)}</strong> avec le statut TNS (contrats individuels inclus). Net ${diff_net>=0?'supérieur':'inférieur'} de ${fmt(Math.abs(diff_net))} vs salarié.`
+      : `Surcoût de <strong>${fmt(-avantage)}</strong> avec le statut TNS à protection comparable. Net ${diff_net>=0?'supérieur':'inférieur'} de ${fmt(Math.abs(diff_net))} vs salarié.`}
+      ${madelin_total>0?' Les cotisations Madelin ('+fmt(madelin_total)+') sont déductibles du résultat — avantage fiscal IR supplémentaire non intégré ici.':''}</div>`;
+
+  // ── Comp cards
+  document.getElementById('comp-cards').innerHTML = `
+    <div class="ccard">
+      <div class="ccard-head">Situation actuelle — Dirigeant salarié</div>
+      <div class="cline sh"><span class="cn">Charges sociales obligatoires</span><span class="cv"></span></div>
+      <div class="cline"><span class="cn">Salaire brut</span><span class="cv">${fmt(brut)}</span></div>
+      <div class="cline"><span class="cn">Charges patronales</span><span class="cv">${fmt(sal.tot_pat)}</span></div>
+      <div class="cline"><span class="cn">Cotisations salariales</span><span class="cv">- ${fmt(sal.tot_sal)}</span></div>
+      <div class="cline tot"><span class="cn">Coût société (social)</span><span class="cv">${fmt(cout_total)}</span></div>
+      <div class="cline sh"><span class="cn">Contrats collectifs</span><span class="cv"></span></div>
+      <div class="cline"><span class="cn">Retraite collective</span><span class="cv">${fmt(ret_coll)}</span></div>
+      <div class="cline"><span class="cn">Prévoyance collective</span><span class="cv">${fmt(prev_coll)}</span></div>
+      <div class="cline"><span class="cn">Santé collective</span><span class="cv">${fmt(sante_coll)}</span></div>
+      <div class="cline tot"><span class="cn">Coût total réel</span><span class="cv">${fmt(cout_sal_reel)}</span></div>
+      <div class="cline tot"><span class="cn">Net fiscal</span><span class="cv">${fmt(net_sal)}</span></div>
+    </div>
+    <div class="ccard active">
+      <div class="ccard-head tns">Projection TNS — Gérant majoritaire SARL/EURL</div>
+      <div class="cline sh"><span class="cn">Cotisations SSI obligatoires</span><span class="cv">${fmt(tns_cot.total)}</span></div>
+      <div class="cline"><span class="cn">Maladie / IJ</span><span class="cv">${fmt(tns_cot.mal+tns_cot.ij)}</span></div>
+      <div class="cline"><span class="cn">Vieillesse de base</span><span class="cv">${fmt(tns_cot.vb)}</span></div>
+      <div class="cline"><span class="cn">Vieillesse complémentaire (RCI)</span><span class="cv">${fmt(tns_cot.vc1+tns_cot.vc2)}</span></div>
+      <div class="cline"><span class="cn">Invalidité-Décès</span><span class="cv">${fmt(tns_cot.inv)}</span></div>
+      <div class="cline"><span class="cn">CSG / CRDS</span><span class="cv">${fmt(tns_cot.csg+tns_cot.crds)}</span></div>
+      <div class="cline sh"><span class="cn">Contrats individuels Madelin</span><span class="cv">${fmt(madelin_total)}</span></div>
+      <div class="cline"><span class="cn">PER / Madelin retraite</span><span class="cv">${fmt(madelin_ret)}</span></div>
+      <div class="cline"><span class="cn">Prévoyance individuelle</span><span class="cv">${fmt(madelin_prev)}</span></div>
+      <div class="cline"><span class="cn">Madelin chômage</span><span class="cv">${fmt(madelin_cho)}</span></div>
+      <div class="cline sh"><span class="cn">Santé individuelle (hors Madelin)</span><span class="cv">${fmt(sante_ind)}</span></div>
+      <div class="cline tot"><span class="cn">Coût total réel</span><span class="cv">${fmt(cout_tns_reel)}</span></div>
+      <div class="cline tot"><span class="cn">Net fiscal projeté</span><span class="cv">${fmt(tns_net)}</span></div>
+    </div>`;
+
+  document.getElementById('note-comp').textContent =
+    `Périmètre : charges sociales uniquement, hors IR. Taux SSI 2026 : maladie 5,89 %, vieillesse de base 17,75 %, complémentaire T1 7 %/T2 8 %, invalidité-décès 1,30 %, CSG 6,80 %+2,90 %. ${acre?'ACRE appliquée (exonération 50 % sur maladie, vieillesse de base, invalidité-décès).':''}`;
+
+  // ── Plafonds
+  const okFmt = (saisie, max) => saisie <= max
+    ? `<span class="ok-text">✓ Dans les limites</span>`
+    : `<span class="ko-text">✗ Dépassement de ${fmt(saisie-max)}</span>`;
+
+  document.getElementById('plaf-grid').innerHTML = `
+    <div class="plaf-card">
+      <div class="pc-label">PER / Madelin retraite</div>
+      <div class="pc-val">${fmt(pl.ret_max)}</div>
+      <div class="pc-formula">10 % × BI + 15 % × (BI entre 1 et 8 PASS)</div>
+      <div class="pc-status">${okFmt(madelin_ret, pl.ret_max)}</div>
+      <div class="pc-cap">Versé : ${fmt(madelin_ret)} — Capacité restante : <strong class="${cap_ret>0?'ok-text':''}">${fmt(cap_ret)}</strong></div>
+    </div>
+    <div class="plaf-card">
+      <div class="pc-label">Prévoyance individuelle Madelin</div>
+      <div class="pc-val">${fmt(pl.prev_max)}</div>
+      <div class="pc-formula">3,75 % × BI + 7 % × PASS</div>
+      <div class="pc-status">${okFmt(madelin_prev, pl.prev_max)}</div>
+      <div class="pc-cap">Versé : ${fmt(madelin_prev)} — Capacité restante : <strong class="${cap_prev>0?'ok-text':''}">${fmt(cap_prev)}</strong></div>
+    </div>
+    <div class="plaf-card">
+      <div class="pc-label">Madelin chômage</div>
+      <div class="pc-val">${fmt(pl.cho_max)}</div>
+      <div class="pc-formula">2,5 % × PASS</div>
+      <div class="pc-status">${okFmt(madelin_cho, pl.cho_max)}</div>
+      <div class="pc-cap">Versé : ${fmt(madelin_cho)} — Capacité restante : <strong class="${cap_cho>0?'ok-text':''}">${fmt(cap_cho)}</strong></div>
+    </div>`;
+
+  document.getElementById('cap-grid').innerHTML = `
+    <div style="font-size:12px;font-weight:700;color:#082C38;margin-bottom:10px">Revenu net TNS projeté (base de calcul) : ${fmt(tns_net)} — PASS 2026 : ${fmt(PASS)}</div>`;
+
+  document.getElementById('note-madelin').textContent =
+    'Déductibilité Madelin conditionnée au paiement des cotisations SSI sans retard. La santé individuelle n\'est pas déductible en Madelin. Formule retraite : 10 % × BI + 15 % × fraction BI entre 1 et 8 PASS. Formule prévoyance : 3,75 % × BI + 7 % × PASS.';
+
+  // ── Retraite
+  document.getElementById('ret-cards').innerHTML = `
+    <div class="ccard">
+      <div class="ccard-head">Retraite — Dirigeant salarié</div>
+      <div class="cline"><span class="cn">Régime</span><span class="cv">Régime général + AGIRC-ARRCO</span></div>
+      <div class="cline"><span class="cn">Trimestres validés / an</span><span class="cv">4 / 4</span></div>
+      <div class="cline"><span class="cn">Cotisations retraite salariale</span><span class="cv">${fmt(sal.ret_sal)}</span></div>
+      <div class="cline"><span class="cn">Cotisations retraite patronale</span><span class="cv">${fmt(sal.ret_pat)}</span></div>
+      <div class="cline"><span class="cn">Retraite collective (AGIRC + suppl.)</span><span class="cv">${fmt(ret_coll)}</span></div>
+      <div class="cline tot"><span class="cn">Effort retraite total</span><span class="cv">${fmt(sal.ret_sal+sal.ret_pat+ret_coll)}</span></div>
+      <div class="cline"><span class="cn">Couverture chômage (ARE)</span><span class="cv" style="color:#1E6E3E;font-weight:700">Oui</span></div>
+    </div>
+    <div class="ccard active">
+      <div class="ccard-head tns">Retraite — TNS projeté</div>
+      <div class="cline"><span class="cn">Régime</span><span class="cv">SSI + RCI + PER Madelin</span></div>
+      <div class="cline"><span class="cn">Trimestres validés / an</span><span class="cv ${trim_tns<4?'red':''}">${trim_tns} / 4</span></div>
+      <div class="cline"><span class="cn">Vieillesse de base</span><span class="cv">${fmt(tns_cot.vb)}</span></div>
+      <div class="cline"><span class="cn">Vieillesse complémentaire (RCI)</span><span class="cv">${fmt(tns_cot.vc1+tns_cot.vc2)}</span></div>
+      <div class="cline"><span class="cn">PER / Madelin retraite</span><span class="cv">${fmt(madelin_ret)}</span></div>
+      <div class="cline tot"><span class="cn">Effort retraite total</span><span class="cv">${fmt(tns_cot.vie+madelin_ret)}</span></div>
+      <div class="cline"><span class="cn">Capacité PER restante</span><span class="cv ${cap_ret>0?'green':''}">${fmt(cap_ret)}</span></div>
+      <div class="cline"><span class="cn">Couverture chômage</span><span class="cv" style="color:#8B1A1A">Non (sauf Madelin)</span></div>
+    </div>`;
+
+  document.getElementById('note-ret').textContent =
+    `Le salarié génère structurellement plus de droits retraite via l'AGIRC-ARRCO. L'écart peut être compensé via le PER/Madelin (capacité restante : ${fmt(cap_ret)}). Trimestres TNS estimés selon l'assiette SSI.`;
+}
+
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+function showTab(id, btn){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── Reset ────────────────────────────────────────────────────────────────────
+function resetForm(){
+  ['nom','brut','cout_total','ret_coll','prev_coll','sante_coll',
+   'madelin_ret','madelin_prev','sante_ind','madelin_cho'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el.type==='text') el.value=''; else el.value=0;
+  });
+  document.getElementById('import-result').innerHTML='';
+  compute();
+}
+
+// ── Export Word ──────────────────────────────────────────────────────────────
+async function exportWord(){
+  const btn = document.getElementById('btn-export');
+  btn.disabled = true;
+  btn.textContent = '⏳ Génération en cours...';
+  try {
+    await generateWord();
+  } catch(e) {
+    alert('Erreur lors de la génération : ' + e.message);
+  }
+  btn.disabled = false;
+  btn.textContent = '📄 Exporter la synthèse Word';
+}
+
+async function generateWord(){
+  const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+          Header, Footer, AlignmentType, BorderStyle, WidthType, ShadingType,
+          VerticalAlign, SimpleField, PageBreak } = docx;
+
+  const BLEU='082C38', BLEU_C='D6E4E8', VERT='1E6E3E', VERT_C='D4EDDA';
+  const ROUGE='8B1A1A', ROUGE_C='FBDADA', GRIS='F2F2F2', BLANC='FFFFFF';
+  const today = new Date().toLocaleDateString('fr-FR');
+
+  function bf(c='CCCCCC'){return{style:BorderStyle.SINGLE,size:1,color:c};}
+  function bfE(c=BLEU){return{style:BorderStyle.SINGLE,size:8,color:c};}
+  function bN(){return{style:BorderStyle.NONE,size:0,color:BLANC};}
+  const Bs=(c='CCCCCC')=>({top:bf(c),bottom:bf(c),left:bf(c),right:bf(c)});
+  const BN=()=>({top:bN(),bottom:bN(),left:bN(),right:bN()});
+
+  function C(text,opts={}){
+    const{w=4500,bold=false,color='000000',bg=BLANC,align=AlignmentType.LEFT,
+          size=20,italic=false,vAlign=VerticalAlign.CENTER,colspan=1,bc='CCCCCC'}=opts;
+    return new TableCell({
+      width:{size:w,type:WidthType.DXA}, borders:Bs(bc),
+      shading:{fill:bg,type:ShadingType.CLEAR},
+      margins:{top:80,bottom:80,left:120,right:120},
+      verticalAlign:vAlign, columnSpan:colspan,
+      children:[new Paragraph({alignment:align,
+        children:[new TextRun({text:String(text),bold,color,size,font:'Arial',italics:italic})]})]
+    });
+  }
+  function HC(text,w=4500){
+    return new TableCell({
+      width:{size:w,type:WidthType.DXA},
+      borders:{top:bf(BLEU),bottom:bf(BLEU),left:bf(BLEU),right:bf(BLEU)},
+      shading:{fill:BLEU,type:ShadingType.CLEAR},
+      margins:{top:100,bottom:100,left:120,right:120},
+      verticalAlign:VerticalAlign.CENTER,
+      children:[new Paragraph({alignment:AlignmentType.CENTER,
+        children:[new TextRun({text,bold:true,color:BLANC,size:20,font:'Arial'})]})]
+    });
+  }
+  function EmC(w=638){
+    return new TableCell({width:{size:w,type:WidthType.DXA},borders:BN(),
+      children:[new Paragraph({children:[new TextRun({text:'',font:'Arial'})]})]});
+  }
+  function TS(t){
+    return new Paragraph({spacing:{before:280,after:100},
+      border:{bottom:{style:BorderStyle.SINGLE,size:6,color:BLEU,space:1}},
+      children:[new TextRun({text:t,bold:true,size:26,color:BLEU,font:'Arial'})]});
+  }
+  function P(text,opts={}){
+    const{bold=false,size=20,color='000000',italic=false,
+          spacing={before:60,after:60},align=AlignmentType.LEFT}=opts;
+    return new Paragraph({alignment:align,spacing,
+      children:[new TextRun({text,bold,size,color,font:'Arial',italics:italic})]});
+  }
+  function N(text){
+    return new Paragraph({spacing:{before:40,after:40},
+      children:[new TextRun({text,size:16,color:'666666',font:'Arial',italics:true})]});
+  }
+  function LT(label,vS,vT,opts={}){
+    const{bl=false,bg=BLANC,bgS=BLANC,bgT=BLANC,cS='000000',cT='000000'}=opts;
+    return new TableRow({children:[
+      C(label,{w:4200,bold:bl,bg}),
+      C(vS,{w:2400,align:AlignmentType.RIGHT,bg:bgS,color:cS,bold:bl}),
+      C(vT,{w:2400,align:AlignmentType.RIGHT,bg:bgT,color:cT,bold:bl}),
+      EmC(638)
+    ]});
+  }
+
+  const d = R;
+
+  const doc2 = new Document({
+    sections:[{
+      properties:{page:{size:{width:11906,height:16838},
+        margin:{top:1134,right:1134,bottom:1134,left:1134}}},
+      headers:{default:new Header({children:[
+        new Table({
+          width:{size:9638,type:WidthType.DXA},columnWidths:[6000,3638],
+          borders:{top:bN(),bottom:bN(),left:bN(),right:bN(),insideH:bN(),insideV:bN()},
+          rows:[new TableRow({children:[
+            new TableCell({width:{size:6000,type:WidthType.DXA},borders:BN(),children:[
+              P('HEXASSUR',{bold:true,size:28,color:BLEU}),
+              P('525 Rue Maurice Herzog — 73420 Méry',{size:16,color:'555555'}),
+              P('04 79 35 09 77',{size:16,color:'555555'}),
+            ]}),
+            new TableCell({width:{size:3638,type:WidthType.DXA},borders:BN(),children:[
+              new Paragraph({alignment:AlignmentType.RIGHT,children:[new TextRun({text:`Dossier : ${d.nom||'Dirigeant'}`,size:18,bold:true,color:BLEU,font:'Arial'})]}),
+              new Paragraph({alignment:AlignmentType.RIGHT,children:[new TextRun({text:`Date : ${today}`,size:16,color:'555555',font:'Arial'})]}),
+              new Paragraph({alignment:AlignmentType.RIGHT,children:[new TextRun({text:'Étude comparative statuts',size:16,color:'555555',font:'Arial',italics:true})]}),
+            ]}),
+          ]})]
+        }),
+        new Paragraph({spacing:{before:60,after:0},
+          border:{bottom:{style:BorderStyle.SINGLE,size:12,color:BLEU,space:1}},
+          children:[new TextRun({text:'',font:'Arial'})]}),
+      ]})},
+      footers:{default:new Footer({children:[
+        new Paragraph({spacing:{before:60},
+          border:{top:{style:BorderStyle.SINGLE,size:4,color:'CCCCCC',space:1}},
+          children:[
+            new TextRun({text:'HEXASSUR — Étude comparative statuts — Document confidentiel     Page ',size:16,color:'888888',font:'Arial',italics:true}),
+            new SimpleField('PAGE'),
+          ]})
+      ]})},
+      children:[
+        // PAGE TITRE
+        new Paragraph({spacing:{before:600},children:[new TextRun({text:'',font:'Arial'})]}),
+        new Table({width:{size:9638,type:WidthType.DXA},columnWidths:[9638],rows:[new TableRow({children:[
+          new TableCell({width:{size:9638,type:WidthType.DXA},shading:{fill:BLEU,type:ShadingType.CLEAR},borders:BN(),
+            margins:{top:400,bottom:400,left:400,right:400},children:[
+              new Paragraph({alignment:AlignmentType.CENTER,children:[new TextRun({text:'ÉTUDE COMPARATIVE',bold:true,size:40,color:BLANC,font:'Arial'})]}),
+              new Paragraph({alignment:AlignmentType.CENTER,spacing:{before:120},children:[new TextRun({text:'Statut Dirigeant Salarié → TNS',size:28,color:BLEU_C,font:'Arial'})]}),
+            ]})]})]})
+        ,
+        new Paragraph({spacing:{before:200},children:[new TextRun({text:'',font:'Arial'})]}),
+        new Table({width:{size:9638,type:WidthType.DXA},columnWidths:[4819,4819],rows:[
+          new TableRow({children:[
+            new TableCell({width:{size:4819,type:WidthType.DXA},borders:BN(),shading:{fill:GRIS,type:ShadingType.CLEAR},margins:{top:120,bottom:120,left:200,right:200},children:[
+              P('Dirigeant analysé',{bold:true,color:BLEU,size:18}), P(d.nom||'—',{bold:true,size:24})]}),
+            new TableCell({width:{size:4819,type:WidthType.DXA},borders:BN(),shading:{fill:GRIS,type:ShadingType.CLEAR},margins:{top:120,bottom:120,left:200,right:200},children:[
+              P('Date de l\'étude',{bold:true,color:BLEU,size:18}), P(today,{bold:true,size:24})]}),
+          ]}),
+          new TableRow({children:[
+            new TableCell({width:{size:4819,type:WidthType.DXA},borders:BN(),shading:{fill:GRIS,type:ShadingType.CLEAR},margins:{top:80,bottom:120,left:200,right:200},children:[
+              P('Conseiller',{bold:true,color:BLEU,size:18}), P('Hexassur',{size:20})]}),
+            new TableCell({width:{size:4819,type:WidthType.DXA},borders:BN(),shading:{fill:GRIS,type:ShadingType.CLEAR},margins:{top:80,bottom:120,left:200,right:200},children:[
+              P('PASS 2026',{bold:true,color:BLEU,size:18}), P('48 060 €',{size:20})]}),
+          ]}),
+        ]}),
+        new Paragraph({spacing:{before:200},children:[new TextRun({text:'',font:'Arial'})]}),
+        N('⚠ Document à usage interne. Périmètre : charges sociales uniquement, hors impôt sur le revenu. Taux SSI 2026. Source données salarié : export Silae Expert.'),
+
+        // SAUT PAGE
+        new Paragraph({children:[new PageBreak()]}),
+
+        // 1. SYNTHÈSE
+        TS('1. Synthèse décisionnelle'),
+        new Paragraph({spacing:{before:120},children:[new TextRun({text:'',font:'Arial'})]}),
+        new Table({width:{size:9638,type:WidthType.DXA},columnWidths:[4819,4819],rows:[new TableRow({children:[
+          new TableCell({width:{size:4819,type:WidthType.DXA},
+            borders:{top:bfE(),bottom:bf(),left:bf(),right:bf()},
+            shading:{fill:GRIS,type:ShadingType.CLEAR},margins:{top:160,bottom:160,left:200,right:200},children:[
+              P('Situation actuelle',{bold:true,color:BLEU,size:22}),
+              P('Dirigeant salarié',{size:18,color:'555555'}),
+              new Paragraph({spacing:{before:100},children:[new TextRun({text:'',font:'Arial'})]}),
+              P('Coût total réel société',{size:16,color:'555555'}),
+              P(fmt(d.cout_sal_reel),{bold:true,size:32,color:BLEU}),
+              P('Net fiscal : '+fmt(d.net_sal),{size:18,bold:true}),
+          ]}),
+          new TableCell({width:{size:4819,type:WidthType.DXA},
+            borders:{top:bfE(VERT),bottom:bf(),left:bf(),right:bf()},
+            shading:{fill:GRIS,type:ShadingType.CLEAR},margins:{top:160,bottom:160,left:200,right:200},children:[
+              P('Projection TNS',{bold:true,color:VERT,size:22}),
+              P('Gérant majoritaire SARL/EURL',{size:18,color:'555555'}),
+              new Paragraph({spacing:{before:100},children:[new TextRun({text:'',font:'Arial'})]}),
+              P('Coût total réel société',{size:16,color:'555555'}),
+              P(fmt(d.cout_tns_reel),{bold:true,size:32,color:VERT}),
+              P('Net fiscal projeté : '+fmt(d.tns_net),{size:18,bold:true}),
+          ]}),
+        ]})]})
+        ,
+        new Paragraph({spacing:{before:160},children:[new TextRun({text:'',font:'Arial'})]}),
+        new Table({width:{size:9638,type:WidthType.DXA},columnWidths:[9638],rows:[new TableRow({children:[
+          new TableCell({width:{size:9638,type:WidthType.DXA},
+            shading:{fill:d.avantage>=0?VERT_C:ROUGE_C,type:ShadingType.CLEAR},
+            borders:{top:bfE(d.avantage>=0?VERT:ROUGE),bottom:bf(),left:bf(),right:bf()},
+            margins:{top:160,bottom:160,left:240,right:240},children:[
+              P(d.avantage>=0
+                ?`Le statut TNS génère une économie annuelle de ${fmt(d.avantage)} à protection comparable.`
+                :`Le statut salarié reste moins coûteux de ${fmt(-d.avantage)} à protection comparable.`,
+                {bold:true,size:22,color:d.avantage>=0?VERT:ROUGE}),
+              P(`Net ${d.diff_net>=0?'supérieur':'inférieur'} de ${fmt(Math.abs(d.diff_net))} en statut TNS.`
+                +(d.madelin_total>0?` Les cotisations Madelin (${fmt(d.madelin_total)}) sont déductibles du résultat — avantage fiscal IR supplémentaire.`:''),
+                {size:18,color:'333333'}),
+          ]})]})]})
+        ,
+
+        // 2. CHARGES
+        new Paragraph({spacing:{before:320},children:[new TextRun({text:'',font:'Arial'})]}),
+        TS('2. Détail comparatif des charges'),
+        new Paragraph({spacing:{before:120},children:[new TextRun({text:'',font:'Arial'})]}),
+        new Table({width:{size:9638,type:WidthType.DXA},columnWidths:[4200,2400,2400,638],rows:[
+          new TableRow({children:[HC('Poste de charge',4200),HC('Salarié actuel',2400),HC('TNS projeté',2400),EmC(638)]}),
+          LT('CHARGES SOCIALES OBLIGATOIRES','','',{bl:true,bg:BLEU_C}),
+          LT('Salaire brut',fmt(d.brut),'—'),
+          LT('Charges patronales URSSAF',fmt(d.sal.tot_pat),'—'),
+          LT('Cotisations salariales','- '+fmt(d.sal.tot_sal),'—'),
+          LT('Maladie / IJ (SSI)','—',fmt(d.tns_cot.mal+d.tns_cot.ij)),
+          LT('Vieillesse de base (SSI)','—',fmt(d.tns_cot.vb)),
+          LT('Vieillesse complémentaire (RCI)','—',fmt(d.tns_cot.vc1+d.tns_cot.vc2)),
+          LT('Invalidité-Décès','—',fmt(d.tns_cot.inv)),
+          LT('CSG / CRDS','—',fmt(d.tns_cot.csg+d.tns_cot.crds)),
+          LT('Sous-total charges sociales',fmt(d.cout_total),fmt(d.tns_cot.total),{bl:true,bgS:GRIS,bgT:GRIS}),
+          LT('CONTRATS COMPLÉMENTAIRES','','',{bl:true,bg:BLEU_C}),
+          LT('Retraite collective / PER Madelin',fmt(d.ret_coll),fmt(d.madelin_ret)),
+          LT('Prévoyance collective / individuelle',fmt(d.prev_coll),fmt(d.madelin_prev)),
+          LT('Santé collective / individuelle',fmt(d.sante_coll),fmt(d.sante_ind)),
+          LT('Madelin chômage','Inclus URSSAF',fmt(d.madelin_cho||0)),
+          LT('Sous-total contrats',fmt(d.ret_coll+d.prev_coll+d.sante_coll),fmt(d.madelin_total+d.sante_ind),{bl:true,bgS:GRIS,bgT:GRIS}),
+          new TableRow({children:[
+            C('COÛT TOTAL RÉEL SOCIÉTÉ',{w:4200,bold:true,bg:BLEU,color:BLANC,bc:BLEU}),
+            C(fmt(d.cout_sal_reel),{w:2400,bold:true,bg:BLEU,color:BLANC,align:AlignmentType.RIGHT,bc:BLEU}),
+            C(fmt(d.cout_tns_reel),{w:2400,bold:true,bg:BLEU,color:BLANC,align:AlignmentType.RIGHT,bc:BLEU}),
+            EmC(638)
+          ]}),
+          LT('NET FISCAL DIRIGEANT',fmt(d.net_sal),fmt(d.tns_net),{bl:true,bgS:GRIS,bgT:GRIS}),
+        ]}),
+        new Paragraph({spacing:{before:80},children:[new TextRun({text:'',font:'Arial'})]}),
+        N('Source données salarié : export Silae Expert. Taux SSI 2026 : maladie 5,89 %, vieillesse base 17,75 %, complémentaire T1 7 %/T2 8 %, invalidité-décès 1,30 %, CSG 6,80 %+2,90 %.'),
+
+        // 3. MADELIN
+        new Paragraph({spacing:{before:320},children:[new TextRun({text:'',font:'Arial'})]}),
+        TS('3. Plafonds PER / Madelin (statut TNS projeté)'),
+        P(`Base : revenu net TNS = ${fmt(d.tns_net)} — PASS 2026 = 48 060 €`,{size:18,color:'555555',italic:true,spacing:{before:80,after:80}}),
+        new Table({width:{size:9638,type:WidthType.DXA},columnWidths:[3000,2000,2000,2000,638],rows:[
+          new TableRow({children:[HC('Contrat',3000),HC('Plafond max',2000),HC('Versement',2000),HC('Capacité restante',2000),EmC(638)]}),
+          new TableRow({children:[
+            C('PER / Madelin retraite',{w:3000}), C(fmt(d.pl.ret_max),{w:2000,align:AlignmentType.RIGHT}),
+            C(fmt(d.madelin_ret),{w:2000,align:AlignmentType.RIGHT}),
+            C(fmt(d.cap_ret),{w:2000,align:AlignmentType.RIGHT,bold:true,color:d.cap_ret>0?VERT:ROUGE}), EmC(638)]}),
+          new TableRow({children:[
+            C('Prévoyance Madelin',{w:3000}), C(fmt(d.pl.prev_max),{w:2000,align:AlignmentType.RIGHT}),
+            C(fmt(d.madelin_prev),{w:2000,align:AlignmentType.RIGHT}),
+            C(fmt(d.cap_prev),{w:2000,align:AlignmentType.RIGHT,bold:true,color:d.cap_prev>0?VERT:ROUGE}), EmC(638)]}),
+          new TableRow({children:[
+            C('Madelin chômage',{w:3000}), C(fmt(d.pl.cho_max),{w:2000,align:AlignmentType.RIGHT}),
+            C(fmt(d.madelin_cho),{w:2000,align:AlignmentType.RIGHT}),
+            C(fmt(d.cap_cho),{w:2000,align:AlignmentType.RIGHT,bold:true,color:d.cap_cho>0?VERT:ROUGE}), EmC(638)]}),
+        ]}),
+        new Paragraph({spacing:{before:80},children:[new TextRun({text:'',font:'Arial'})]}),
+        N('Déductibilité Madelin conditionnée au paiement des cotisations SSI sans retard. Santé individuelle non déductible en Madelin.'),
+
+        // 4. RETRAITE
+        new Paragraph({spacing:{before:320},children:[new TextRun({text:'',font:'Arial'})]}),
+        TS('4. Droits retraite comparés'),
+        new Paragraph({spacing:{before:80},children:[new TextRun({text:'',font:'Arial'})]}),
+        new Table({width:{size:9638,type:WidthType.DXA},columnWidths:[3800,2700,2700,438],rows:[
+          new TableRow({children:[HC('Critère',3800),HC('Dirigeant salarié',2700),HC('TNS projeté',2700),EmC(438)]}),
+          new TableRow({children:[C('Régime retraite de base',{w:3800}),C('Régime général (CNAV)',{w:2700}),C('SSI (artisan/commerçant)',{w:2700}),EmC(438)]}),
+          new TableRow({children:[C('Retraite complémentaire',{w:3800}),C('AGIRC-ARRCO',{w:2700}),C('RCI (régime SSI)',{w:2700}),EmC(438)]}),
+          new TableRow({children:[C('Trimestres / an',{w:3800}),C('4 / 4',{w:2700,bold:true}),C(`${d.trim_tns} / 4`,{w:2700,bold:true,color:d.trim_tns<4?ROUGE:VERT}),EmC(438)]}),
+          new TableRow({children:[C('Cotisations retraite oblig.',{w:3800}),C(fmt(d.sal.ret_sal+d.sal.ret_pat),{w:2700,align:AlignmentType.RIGHT}),C(fmt(d.tns_cot.vie),{w:2700,align:AlignmentType.RIGHT}),EmC(438)]}),
+          new TableRow({children:[C('Retraite suppl. / PER',{w:3800}),C(fmt(d.ret_coll),{w:2700,align:AlignmentType.RIGHT}),C(fmt(d.madelin_ret),{w:2700,align:AlignmentType.RIGHT}),EmC(438)]}),
+          new TableRow({children:[
+            C('Effort retraite total',{w:3800,bold:true}),
+            C(fmt(d.sal.ret_sal+d.sal.ret_pat+d.ret_coll),{w:2700,align:AlignmentType.RIGHT,bold:true,bg:GRIS}),
+            C(fmt(d.tns_cot.vie+d.madelin_ret),{w:2700,align:AlignmentType.RIGHT,bold:true,bg:GRIS}),
+            EmC(438)]}),
+          new TableRow({children:[C('Couverture chômage',{w:3800}),C('Oui (ARE)',{w:2700,color:VERT,bold:true}),C('Non (sauf Madelin)',{w:2700,color:ROUGE}),EmC(438)]}),
+          new TableRow({children:[C('Capacité PER restante',{w:3800}),C('—',{w:2700}),C(fmt(d.cap_ret),{w:2700,align:AlignmentType.RIGHT,bold:true,color:d.cap_ret>0?VERT:'000000'}),EmC(438)]}),
+        ]}),
+        new Paragraph({spacing:{before:80},children:[new TextRun({text:'',font:'Arial'})]}),
+        N(`Le salarié génère plus de droits retraite via l'AGIRC-ARRCO. Écart compensable via PER/Madelin (capacité restante : ${fmt(d.cap_ret)}).`),
+
+        // 5. MENTIONS
+        new Paragraph({children:[new PageBreak()]}),
+        TS('Mentions légales et avertissements'),
+        new Paragraph({spacing:{before:120},children:[new TextRun({text:'',font:'Arial'})]}),
+        P('Cette étude est établie à titre indicatif sur la base des taux et plafonds en vigueur en 2026 (PASS 2026 = 48 060 €). Elle ne constitue pas un conseil juridique ou fiscal.',{size:18,color:'444444'}),
+        new Paragraph({spacing:{before:80},children:[new TextRun({text:'',font:'Arial'})]}),
+        P('Périmètre :',{bold:true,size:18}),
+        P('• Charges sociales uniquement — hors impôt sur le revenu.',{size:18,color:'444444'}),
+        P(`• Les cotisations Madelin (${fmt(d.madelin_total)}) sont déductibles du bénéfice imposable TNS — avantage fiscal non intégré ici.`,{size:18,color:'444444'}),
+        P('• La réforme de l\'assiette TNS (art. 18 loi 2023-1250) n\'est pas prise en compte.',{size:18,color:'444444'}),
+        new Paragraph({spacing:{before:160},children:[new TextRun({text:'',font:'Arial'})]}),
+        new Table({width:{size:9638,type:WidthType.DXA},columnWidths:[4819,4819],rows:[new TableRow({children:[
+          new TableCell({width:{size:4819,type:WidthType.DXA},borders:BN(),children:[
+            P('_________________________________',{size:18}), P(d.nom||'Dirigeant',{bold:true,size:18}), P('Dirigeant',{size:16,color:'666666'})]}),
+          new TableCell({width:{size:4819,type:WidthType.DXA},borders:BN(),children:[
+            P('_________________________________',{size:18}), P('HEXASSUR',{bold:true,size:18}), P('Représenté par Virginie Pollet',{size:16,color:'666666'})]}),
+        ]})]})
+        ,
+      ]
+    }]
+  });
+
+  const blob = await Packer.toBlob(doc2);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Synthese_TNS_Salarie_${(d.nom||'dirigeant').replace(/\s+/g,'_')}.docx`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+document.querySelectorAll('input,select').forEach(el=>{
+  if(el.type!=='file') el.addEventListener('input', compute);
+});
+compute();
+</script>
+</body>
+</html>
