@@ -179,6 +179,7 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
     <div class="grid3">
       <div class="field"><label>Prévoyance collective — total (€/an)</label><input type="number" id="prev_coll" value="2573" step="100"></div>
       <div class="field"><label>Santé collective — total (€/an)</label><input type="number" id="sante_coll" value="1526" step="100"></div>
+      <div class="field"><label>Salaire net annuel (calculé)</label><input type="text" id="net_sal_display" readonly style="background:#F0F4F7;font-weight:700;color:#082C38"></div>
     </div>
   </div>
 
@@ -200,19 +201,25 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
       <div class="field"><label>Rémunération de gérance prévisionnelle (€/an)</label><input type="number" id="remu_gerance" value="42000" step="500"></div>
     </div>
     <div class="grid3">
-      <div class="field"><label>Santé individuelle (€/an)</label><input type="number" id="sante_ind" value="2400" step="100"></div>
+      <div class="field"><label>Santé Madelin (€/an)</label><input type="number" id="sante_ind" value="2400" step="100"></div>
       <div class="field"><label>Prévoyance individuelle Madelin (€/an)</label><input type="number" id="madelin_prev" value="2000" step="100"></div>
       <div class="field"><label>PER / Madelin retraite (€/an)</label><input type="number" id="madelin_ret" value="3000" step="100"></div>
     </div>
     <div class="card" id="taux-ro-info" style="margin-top:10px;background:#F0F4F7;padding:10px 14px;font-size:12px"></div>
   </div>
 
+  <!-- PLAFOND PER -->
+  <div class="card">
+    <div class="card-title">🎯 Plafond PER / Madelin retraite</div>
+    <div class="plaf-grid" id="plaf-grid" style="grid-template-columns:1fr"></div>
+  </div>
+
   <!-- TABLE DE RÉFÉRENCE -->
   <div class="card">
     <div class="card-title">📊 Table de référence — Taux de charges régime obligatoire</div>
     <div style="font-size:11px;color:#888;margin-bottom:10px">Tranches de rémunération annuelle (montant prélevé, avant URSSAF/taxes) — taux appliqué selon la tranche atteinte. Cette table peut être ajustée dans le code source pour affiner les seuils.</div>
-    <div style="max-height:220px;overflow-y:auto;border:1px solid #E0E4E8;border-radius:6px">
-      <table id="table-ro" style="width:100%;border-collapse:collapse;font-size:12px">
+    <div style="max-height:220px;overflow-y:auto;border:1px solid #E0E4E8;border-radius:6px;display:flex;justify-content:center">
+      <table id="table-ro" style="width:auto;min-width:0;border-collapse:collapse;font-size:12px">
         <thead style="position:sticky;top:0;background:#082C38;color:#fff">
           <tr id="table-ro-head"></tr>
         </thead>
@@ -229,28 +236,12 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
 
 
   <!-- RÉSULTATS -->
-  <div class="tabs">
-    <button class="tab-btn active" onclick="showTab('comp',this)">Comparateur charges</button>
-    <button class="tab-btn" onclick="showTab('madelin',this)">Plafonds PER / Madelin</button>
-    <button class="tab-btn" onclick="showTab('ret',this)">Retraite</button>
-  </div>
-
-  <div id="tab-comp" class="tab-panel active">
+  <div class="card">
+    <div class="card-title">⚖ Comparateur de charges</div>
     <div class="metrics" id="metrics"></div>
     <div class="verdict" id="verdict"></div>
     <div class="comp" id="comp-cards"></div>
     <div class="note" id="note-comp"></div>
-  </div>
-
-  <div id="tab-madelin" class="tab-panel">
-    <div class="plaf-grid" id="plaf-grid"></div>
-    <div class="card" id="cap-grid" style="margin-bottom:12px"></div>
-    <div class="note" id="note-madelin"></div>
-  </div>
-
-  <div id="tab-ret" class="tab-panel">
-    <div class="ret-grid" id="ret-cards"></div>
-    <div class="note" id="note-ret"></div>
   </div>
 
 </div>
@@ -314,12 +305,12 @@ function tauxRO(remuneration, caisse){
 function renderTableRO(){
   const head = document.getElementById('table-ro-head');
   const body = document.getElementById('table-ro-body');
-  head.innerHTML = `<th style="padding:6px 10px;text-align:left">Tranche (€/an)</th>` +
-    CAISSES.map(c=>`<th style="padding:6px 10px;text-align:right">${c}</th>`).join('');
+  head.innerHTML = `<th style="padding:6px 10px;text-align:left;width:130px">Tranche (€/an)</th>` +
+    CAISSES.map(c=>`<th style="padding:6px 14px;text-align:right;width:70px">${c}</th>`).join('');
   body.innerHTML = TABLE_RO.map(([bas,haut,taux],i)=>`
     <tr style="background:${i%2?'#FAFBFC':'#fff'}">
-      <td style="padding:5px 10px;border-bottom:1px solid #EEE">${bas.toLocaleString('fr-FR')} – ${haut.toLocaleString('fr-FR')}</td>
-      ${CAISSES.map(c=>`<td style="padding:5px 10px;text-align:right;border-bottom:1px solid #EEE">${(taux[c]*100).toFixed(0)} %</td>`).join('')}
+      <td style="padding:5px 10px;border-bottom:1px solid #EEE;width:130px;white-space:nowrap">${bas.toLocaleString('fr-FR')} – ${haut.toLocaleString('fr-FR')}</td>
+      ${CAISSES.map(c=>`<td style="padding:5px 14px;text-align:right;border-bottom:1px solid #EEE;width:70px">${(taux[c]*100).toFixed(0)} %</td>`).join('')}
     </tr>`).join('');
 }
 
@@ -370,8 +361,12 @@ function parseSilae(wb){
     const baseP= parseFloat(r[6])||0;
     const baseS= parseFloat(r[3])||0;
 
-    if(code==='') continue;
+    // Important : la ligne "Total des charges" a un Code VIDE — il faut donc
+    // traiter cette détection AVANT le "continue" sur code vide, sinon le total
+    // patronal/salarial n'est jamais récupéré (bug constaté en production).
     if(lib.includes('Total des charges')){ tot_sal=sal||tot_sal; tot_pat=pat||tot_pat; }
+
+    if(code==='') continue;
     if(code==='SS003'||code==='SS004') basesSal.push(baseP||baseS);
     if(RET_OBLIG_CODES.includes(code)) { ret_sal+=sal;       ret_pat+=pat; }
     if(RET_SUPP_CODES.includes(code))  { ret_supp_sal+=sal;  ret_supp_pat+=pat; }
@@ -404,17 +399,23 @@ function applyImport(data){
   document.getElementById('prev_coll').value    = data.prev_coll      || 0;
   document.getElementById('sante_coll').value   = data.sante_coll     || 0;
 
+  const netCalc = (data.brut||0) - (data.tot_sal||0);
+
   document.getElementById('import-result').innerHTML = `
     <div class="import-ok">
       <div class="ok-title">✅ Import réussi — ${data.nom||'Dirigeant'} ${data.periode?'('+data.periode+')':''}</div>
+      <div class="import-grid" style="grid-template-columns:repeat(3,1fr)">
+        <div class="import-item"><div class="ik">Rémunération nette annuelle</div><div class="iv">${fmt(netCalc)}</div></div>
+        <div class="import-item"><div class="ik">Rémunération brute annuelle</div><div class="iv">${fmt(data.brut)}</div></div>
+        <div class="import-item"><div class="ik">Coût total chargé</div><div class="iv">${fmt(data.cout_total)}</div></div>
+      </div>
+      <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em;margin:10px 0 6px">Dont</div>
       <div class="import-grid">
-        <div class="import-item"><div class="ik">Brut annuel</div><div class="iv">${fmt(data.brut)}</div></div>
-        <div class="import-item"><div class="ik">Charges patronales</div><div class="iv">${fmt(data.tot_pat)}</div></div>
-        <div class="import-item"><div class="ik">Coût total société</div><div class="iv">${fmt(data.cout_total)}</div></div>
-        <div class="import-item"><div class="ik">Retraite oblig. (AGIRC-ARRCO)</div><div class="iv">${fmt(data.ret_coll)}</div></div>
-        <div class="import-item"><div class="ik">Retraite Supp</div><div class="iv">${fmt(data.ret_supp)}</div></div>
-        <div class="import-item"><div class="ik">Prévoyance collective</div><div class="iv">${fmt(data.prev_coll)}</div></div>
         <div class="import-item"><div class="ik">Santé collective</div><div class="iv">${fmt(data.sante_coll)}</div></div>
+        <div class="import-item"><div class="ik">Prévoyance collective</div><div class="iv">${fmt(data.prev_coll)}</div></div>
+        <div class="import-item"><div class="ik">Retraite obligatoire</div><div class="iv">${fmt(data.ret_coll)}</div></div>
+        <div class="import-item"><div class="ik">Retraite supplémentaire</div><div class="iv">${fmt(data.ret_supp)}</div></div>
+        <div class="import-item"><div class="ik">Épargne salariale (PEI/PERECO...)</div><div class="iv">${fmt(data.autres_epargnes)}</div></div>
       </div>
       <div style="font-size:11px;color:#666;margin-top:8px">Les champs ont été pré-remplis. Tu peux les ajuster si nécessaire.</div>
     </div>`;
@@ -495,6 +496,7 @@ function compute(){
 
   const sal = salCot(brut);
   const net_sal = sal.net;
+  document.getElementById('net_sal_display').value = fmt(net_sal);
   const cout_sal_reel = cout_total + ret_coll + ret_supp + autres_epargnes + prev_coll + sante_coll;
   const madelin_total = madelin_ret + madelin_prev;
 
@@ -545,42 +547,39 @@ function compute(){
       : `Surcoût de <strong>${fmt(-avantage)}</strong> avec le statut TNS à protection comparable. Net ${diff_net>=0?'supérieur':'inférieur'} de ${fmt(Math.abs(diff_net))} vs salarié.`}
       ${madelin_total>0?' Les cotisations Madelin ('+fmt(madelin_total)+') sont déductibles du résultat — avantage fiscal IR supplémentaire non intégré ici.':''}</div>`;
 
-  // ── Comp cards
+  // ── Comp cards — périmètre équivalent, lignes en vis-à-vis
   const fmtNetM = (n) => `${Math.round(n).toLocaleString('fr-FR')} € / an  //  ${Math.round(n/12).toLocaleString('fr-FR')} € / mois`;
+  const cout_salarial_global = cout_total - prev_coll - sante_coll - ret_coll; // hors santé/prévoyance/retraite oblig.
+  const cout_gerance_global  = cotis_oblig; // cotisations obligatoires TNS = équivalent "coût global hors santé/prévoyance/retraite" puisque santé/prévoyance sont déjà à part (Madelin) et retraite oblig. est incluse dans cotis_oblig
+
   document.getElementById('comp-cards').innerHTML = `
     <div class="ccard">
       <div class="ccard-head">Situation actuelle — Dirigeant salarié</div>
-      <div class="cline sh"><span class="cn">Charges sociales obligatoires</span><span class="cv"></span></div>
-      <div class="cline"><span class="cn">Salaire brut</span><span class="cv">${fmt(brut)}</span></div>
-      <div class="cline"><span class="cn">Charges patronales</span><span class="cv">${fmt(sal.tot_pat)}</span></div>
-      <div class="cline"><span class="cn">Cotisations salariales</span><span class="cv">- ${fmt(sal.tot_sal)}</span></div>
-      <div class="cline tot"><span class="cn">Coût société (social)</span><span class="cv">${fmt(cout_total)}</span></div>
-      <div class="cline sh"><span class="cn">Contrats &amp; épargnes collectifs</span><span class="cv"></span></div>
-      <div class="cline"><span class="cn">Retraite régime obligatoire</span><span class="cv">${fmt(ret_coll)}</span></div>
-      <div class="cline"><span class="cn">Retraite Supp</span><span class="cv">${ret_supp>0?fmt(ret_supp):'—'}</span></div>
-      <div class="cline"><span class="cn">Autres épargnes</span><span class="cv">${autres_epargnes>0?fmt(autres_epargnes):'—'}</span></div>
-      <div class="cline"><span class="cn">Prévoyance collective</span><span class="cv">${fmt(prev_coll)}</span></div>
-      <div class="cline"><span class="cn">Santé collective</span><span class="cv">${fmt(sante_coll)}</span></div>
+      <div class="cline"><span class="cn">Coût salarial global (hors santé/prév./retraite)</span><span class="cv">${fmt(cout_salarial_global)}</span></div>
+      <div class="cline"><span class="cn">Coût global santé</span><span class="cv">${fmt(sante_coll)}</span></div>
+      <div class="cline"><span class="cn">Coût global prévoyance</span><span class="cv">${fmt(prev_coll)}</span></div>
+      <div class="cline"><span class="cn">Coût retraite obligatoire</span><span class="cv">${fmt(ret_coll)}</span></div>
       <div class="cline tot"><span class="cn">Coût total réel</span><span class="cv">${fmt(cout_sal_reel)}</span></div>
-      <div class="cline tot" style="background:#E6F0F7"><span class="cn">Rémunération nette</span><span class="cv" style="color:#082C38">${fmtNetM(net_sal)}</span></div>
+      <div class="cline sh"><span class="cn">Charges supplémentaires (info)</span><span class="cv"></span></div>
+      <div class="cline"><span class="cn">Retraite supplémentaire</span><span class="cv">${ret_supp>0?fmt(ret_supp):'—'}</span></div>
+      <div class="cline"><span class="cn">Épargne salariale (PEI/PERECO...)</span><span class="cv">${autres_epargnes>0?fmt(autres_epargnes):'—'}</span></div>
     </div>
     <div class="ccard active">
       <div class="ccard-head tns">Projection TNS — Gérant majoritaire SARL/EURL</div>
-      <div class="cline sh"><span class="cn">Cotisations obligatoires (${caisse_ro})</span><span class="cv">${fmt(cotis_oblig)}</span></div>
-      <div class="cline"><span class="cn">Taux de charge appliqué</span><span class="cv">${taux_charge!==null?(taux_charge*100).toFixed(0)+' %':'—'}</span></div>
-      <div class="cline"><span class="cn">Tranche de rémunération</span><span class="cv">${fmt(remu_gerance)}</span></div>
-      <div class="cline sh"><span class="cn">Contrats individuels Madelin</span><span class="cv">${fmt(madelin_total)}</span></div>
-      <div class="cline"><span class="cn">Santé individuelle</span><span class="cv">${fmt(sante_ind)}</span></div>
-      <div class="cline"><span class="cn">Prévoyance Madelin</span><span class="cv">${fmt(madelin_prev)}</span></div>
-      <div class="cline"><span class="cn">Retraite PER Madelin</span><span class="cv">${fmt(madelin_ret)}</span></div>
+      <div class="cline"><span class="cn">Coût rémunération gérance global</span><span class="cv">${fmt(cout_gerance_global)}</span></div>
+      <div class="cline"><span class="cn">Coût global santé (Madelin)</span><span class="cv">${fmt(sante_ind)}</span></div>
+      <div class="cline"><span class="cn">Coût global prévoyance (Madelin)</span><span class="cv">${fmt(madelin_prev)}</span></div>
+      <div class="cline"><span class="cn">Coût retraite obligatoire (${caisse_ro})</span><span class="cv">${fmt(cotis_oblig)}</span></div>
       <div class="cline tot"><span class="cn">Coût total réel</span><span class="cv">${fmt(cout_tns_reel)}</span></div>
-      <div class="cline tot" style="background:#E6F5EC"><span class="cn">Rémunération de gérance</span><span class="cv" style="color:#1E6E3E">${fmtNetM(tns_net)}</span></div>
+      <div class="cline sh"><span class="cn">Charges supplémentaires (info)</span><span class="cv"></span></div>
+      <div class="cline"><span class="cn">Retraite PER Madelin</span><span class="cv">${fmt(madelin_ret)}</span></div>
+      <div class="cline"><span class="cn">Épargne salariale (PEI/PERECO...)</span><span class="cv">—</span></div>
     </div>`;
 
   document.getElementById('note-comp').textContent =
     'Périmètre : charges sociales uniquement, hors IR. Taux SSI 2026 : maladie 5,89 %, vieillesse de base 17,75 %, complémentaire T1 7 %/T2 8 %, invalidité-décès 1,30 %, CSG 6,80 %+2,90 %.';
 
-  // ── Plafonds
+  // ── Plafond PER (uniquement)
   const okFmt = (saisie, max) => saisie <= max
     ? `<span class="ok-text">✓ Dans les limites</span>`
     : `<span class="ko-text">✗ Dépassement de ${fmt(saisie-max)}</span>`;
@@ -589,50 +588,11 @@ function compute(){
     <div class="plaf-card">
       <div class="pc-label">PER / Madelin retraite</div>
       <div class="pc-val">${fmt(pl.ret_max)}</div>
-      <div class="pc-formula">10 % × BI + 15 % × (BI entre 1 et 8 PASS)</div>
+      <div class="pc-formula">10 % × BI + 15 % × (BI entre 1 et 8 PASS) — BI = rémunération de gérance projetée (${fmt(tns_net)})</div>
       <div class="pc-status">${okFmt(madelin_ret, pl.ret_max)}</div>
       <div class="pc-cap">Versé : ${fmt(madelin_ret)} — Capacité restante : <strong class="${cap_ret>0?'ok-text':''}">${fmt(cap_ret)}</strong></div>
-    </div>
-    <div class="plaf-card">
-      <div class="pc-label">Prévoyance individuelle Madelin</div>
-      <div class="pc-val">${fmt(pl.prev_max)}</div>
-      <div class="pc-formula">3,75 % × BI + 7 % × PASS</div>
-      <div class="pc-status">${okFmt(madelin_prev, pl.prev_max)}</div>
-      <div class="pc-cap">Versé : ${fmt(madelin_prev)} — Capacité restante : <strong class="${cap_prev>0?'ok-text':''}">${fmt(cap_prev)}</strong></div>
     </div>`;
 
-  document.getElementById('cap-grid').innerHTML = `
-    <div style="font-size:12px;font-weight:700;color:#082C38;margin-bottom:10px">Revenu net TNS projeté (base de calcul) : ${fmt(tns_net)} — PASS 2026 : ${fmt(PASS)}</div>`;
-
-  document.getElementById('note-madelin').textContent =
-    'Déductibilité Madelin conditionnée au paiement des cotisations SSI sans retard. La santé individuelle n\'est pas déductible en Madelin. Formule retraite : 10 % × BI + 15 % × fraction BI entre 1 et 8 PASS. Formule prévoyance : 3,75 % × BI + 7 % × PASS.';
-
-  // ── Retraite
-  document.getElementById('ret-cards').innerHTML = `
-    <div class="ccard">
-      <div class="ccard-head">Retraite — Dirigeant salarié</div>
-      <div class="cline"><span class="cn">Régime</span><span class="cv">Régime général + AGIRC-ARRCO</span></div>
-      <div class="cline"><span class="cn">Trimestres validés / an</span><span class="cv">4 / 4</span></div>
-      <div class="cline"><span class="cn">Cotisations retraite salariale</span><span class="cv">${fmt(sal.ret_sal)}</span></div>
-      <div class="cline"><span class="cn">Cotisations retraite patronale</span><span class="cv">${fmt(sal.ret_pat)}</span></div>
-      <div class="cline"><span class="cn">Retraite collective (AGIRC + suppl.)</span><span class="cv">${fmt(ret_coll)}</span></div>
-      <div class="cline tot"><span class="cn">Effort retraite total</span><span class="cv">${fmt(sal.ret_sal+sal.ret_pat+ret_coll)}</span></div>
-      <div class="cline"><span class="cn">Couverture chômage (ARE)</span><span class="cv" style="color:#1E6E3E;font-weight:700">Oui</span></div>
-    </div>
-    <div class="ccard active">
-      <div class="ccard-head tns">Retraite — TNS projeté</div>
-      <div class="cline"><span class="cn">Régime</span><span class="cv">${caisse_ro} + PER Madelin</span></div>
-      <div class="cline"><span class="cn">Trimestres validés / an</span><span class="cv ${trim_tns<4?'red':''}">${trim_tns} / 4</span></div>
-      <div class="cline"><span class="cn">Cotisations obligatoires (${caisse_ro})</span><span class="cv">${fmt(cotis_oblig)}</span></div>
-      <div class="cline"><span class="cn">dont part retraite (estimation)</span><span class="cv" style="color:#888">non détaillée par la table</span></div>
-      <div class="cline"><span class="cn">PER / Madelin retraite</span><span class="cv">${fmt(madelin_ret)}</span></div>
-      <div class="cline tot"><span class="cn">Effort retraite supplémentaire</span><span class="cv">${fmt(madelin_ret)}</span></div>
-      <div class="cline"><span class="cn">Capacité PER restante</span><span class="cv ${cap_ret>0?'green':''}">${fmt(cap_ret)}</span></div>
-      <div class="cline"><span class="cn">Couverture chômage</span><span class="cv" style="color:#8B1A1A">Non (sauf Madelin)</span></div>
-    </div>`;
-
-  document.getElementById('note-ret').textContent =
-    `Le salarié génère structurellement plus de droits retraite via l'AGIRC-ARRCO. La table de référence par caisse (${caisse_ro}) donne un taux de charge global incluant la part retraite, sans détail ligne par ligne. Capacité PER restante : ${fmt(cap_ret)}. Trimestres TNS estimés selon le revenu prévisionnel rapporté au PASS.`;
 }
 
 // ── Tabs ─────────────────────────────────────────────────────────────────────
@@ -854,73 +814,39 @@ async function generateWord(){
         new Paragraph({spacing:{before:120},children:[new TextRun({text:'',font:'Arial'})]}),
         new Table({width:{size:9638,type:WidthType.DXA},columnWidths:[4200,2400,2400,638],rows:[
           new TableRow({children:[HC('Poste de charge',4200),HC('Salarié actuel',2400),HC('TNS projeté',2400),EmC(638)]}),
-          LT('CHARGES SOCIALES OBLIGATOIRES','','',{bl:true,bg:BLEU_C}),
-          LT('Salaire brut',fmt(d.brut),'—'),
-          LT('Charges patronales URSSAF',fmt(d.sal.tot_pat),'—'),
-          LT('Cotisations salariales','- '+fmt(d.sal.tot_sal),'—'),
-          LT('Rémunération de gérance prévisionnelle','—',fmt(d.remu_gerance)),
-          LT(`Cotisations obligatoires (${d.caisse_ro})`,'—',fmt(d.cotis_oblig)),
-          LT('Taux de charge appliqué (table de référence)','—',d.taux_charge!==null?(d.taux_charge*100).toFixed(0)+' %':'—'),
-          LT('Sous-total charges sociales',fmt(d.cout_total),fmt(d.cotis_oblig),{bl:true,bgS:GRIS,bgT:GRIS}),
-          LT('CONTRATS &amp; ÉPARGNES COMPLÉMENTAIRES','','',{bl:true,bg:BLEU_C}),
-          LT('Retraite régime obligatoire / PER Madelin',fmt(d.ret_coll),fmt(d.madelin_ret)),
-          LT('Retraite Supp',d.ret_supp>0?fmt(d.ret_supp):'—','—'),
-          LT('Autres épargnes',d.autres_epargnes>0?fmt(d.autres_epargnes):'—','—'),
-          LT('Prévoyance collective / Madelin',fmt(d.prev_coll),fmt(d.madelin_prev)),
-          LT('Santé collective / individuelle',fmt(d.sante_coll),fmt(d.sante_ind)),
-          LT('Sous-total contrats',fmt(d.ret_coll+d.ret_supp+d.autres_epargnes+d.prev_coll+d.sante_coll),fmt(d.madelin_total+d.sante_ind),{bl:true,bgS:GRIS,bgT:GRIS}),
+          LT('Coût global (hors santé/prév./retraite)',fmt(d.cout_total-d.prev_coll-d.sante_coll-d.ret_coll),fmt(d.cotis_oblig)),
+          LT('Coût global santé',fmt(d.sante_coll),fmt(d.sante_ind)),
+          LT('Coût global prévoyance',fmt(d.prev_coll),fmt(d.madelin_prev)),
+          LT('Coût retraite obligatoire',fmt(d.ret_coll),fmt(d.cotis_oblig)),
+          LT('Taux de charge appliqué','—',d.taux_charge!==null?(d.taux_charge*100).toFixed(0)+' % ('+d.caisse_ro+')':'—'),
           new TableRow({children:[
             C('COÛT TOTAL RÉEL SOCIÉTÉ',{w:4200,bold:true,bg:BLEU,color:BLANC,bc:BLEU}),
             C(fmt(d.cout_sal_reel),{w:2400,bold:true,bg:BLEU,color:BLANC,align:AlignmentType.RIGHT,bc:BLEU}),
             C(fmt(d.cout_tns_reel),{w:2400,bold:true,bg:BLEU,color:BLANC,align:AlignmentType.RIGHT,bc:BLEU}),
             EmC(638)
           ]}),
-          LT('NET FISCAL DIRIGEANT',fmt(d.net_sal),fmt(d.tns_net),{bl:true,bgS:GRIS,bgT:GRIS}),
+          LT('CHARGES SUPPLÉMENTAIRES (INFO)','','',{bl:true,bg:BLEU_C}),
+          LT('Retraite supplémentaire',d.ret_supp>0?fmt(d.ret_supp):'—',fmt(d.madelin_ret)),
+          LT('Épargne salariale (PEI/PERECO...)',d.autres_epargnes>0?fmt(d.autres_epargnes):'—','—'),
         ]}),
         new Paragraph({spacing:{before:80},children:[new TextRun({text:'',font:'Arial'})]}),
-        N('Source données salarié : export Silae Expert. Taux SSI 2026 : maladie 5,89 %, vieillesse base 17,75 %, complémentaire T1 7 %/T2 8 %, invalidité-décès 1,30 %, CSG 6,80 %+2,90 %.'),
+        N('Source données salarié : export Silae Expert. Cotisations TNS calculées via la table de référence cabinet (taux de charge par tranche de rémunération et par caisse).'),
 
-        // 3. MADELIN
+        // 3. PLAFOND PER
         new Paragraph({spacing:{before:320},children:[new TextRun({text:'',font:'Arial'})]}),
-        TS('3. Plafonds PER / Madelin (statut TNS projeté)'),
-        P(`Base : revenu net TNS = ${fmt(d.tns_net)} — PASS 2026 = 48 060 €`,{size:18,color:'555555',italic:true,spacing:{before:80,after:80}}),
+        TS('3. Plafond PER / Madelin retraite (statut TNS projeté)'),
+        P(`Base : rémunération de gérance projetée = ${fmt(d.tns_net)} — PASS 2026 = 48 060 €`,{size:18,color:'555555',italic:true,spacing:{before:80,after:80}}),
         new Table({width:{size:9638,type:WidthType.DXA},columnWidths:[3000,2000,2000,2000,638],rows:[
           new TableRow({children:[HC('Contrat',3000),HC('Plafond max',2000),HC('Versement',2000),HC('Capacité restante',2000),EmC(638)]}),
           new TableRow({children:[
             C('PER / Madelin retraite',{w:3000}), C(fmt(d.pl.ret_max),{w:2000,align:AlignmentType.RIGHT}),
             C(fmt(d.madelin_ret),{w:2000,align:AlignmentType.RIGHT}),
             C(fmt(d.cap_ret),{w:2000,align:AlignmentType.RIGHT,bold:true,color:d.cap_ret>0?VERT:ROUGE}), EmC(638)]}),
-          new TableRow({children:[
-            C('Prévoyance Madelin',{w:3000}), C(fmt(d.pl.prev_max),{w:2000,align:AlignmentType.RIGHT}),
-            C(fmt(d.madelin_prev),{w:2000,align:AlignmentType.RIGHT}),
-            C(fmt(d.cap_prev),{w:2000,align:AlignmentType.RIGHT,bold:true,color:d.cap_prev>0?VERT:ROUGE}), EmC(638)]}),
         ]}),
         new Paragraph({spacing:{before:80},children:[new TextRun({text:'',font:'Arial'})]}),
-        N('Déductibilité Madelin conditionnée au paiement des cotisations SSI sans retard. Santé individuelle non déductible en Madelin.'),
+        N('Formule : 10 % × BI + 15 % × (fraction BI entre 1 et 8 PASS). Déductibilité conditionnée au paiement des cotisations obligatoires sans retard.'),
 
-        // 4. RETRAITE
-        new Paragraph({spacing:{before:320},children:[new TextRun({text:'',font:'Arial'})]}),
-        TS('4. Droits retraite comparés'),
-        new Paragraph({spacing:{before:80},children:[new TextRun({text:'',font:'Arial'})]}),
-        new Table({width:{size:9638,type:WidthType.DXA},columnWidths:[3800,2700,2700,438],rows:[
-          new TableRow({children:[HC('Critère',3800),HC('Dirigeant salarié',2700),HC('TNS projeté',2700),EmC(438)]}),
-          new TableRow({children:[C('Régime retraite de base',{w:3800}),C('Régime général (CNAV)',{w:2700}),C(`${d.caisse_ro} (caisse obligatoire)`,{w:2700}),EmC(438)]}),
-          new TableRow({children:[C('Retraite complémentaire',{w:3800}),C('AGIRC-ARRCO',{w:2700}),C('Incluse dans le taux global',{w:2700}),EmC(438)]}),
-          new TableRow({children:[C('Trimestres / an',{w:3800}),C('4 / 4',{w:2700,bold:true}),C(`${d.trim_tns} / 4`,{w:2700,bold:true,color:d.trim_tns<4?ROUGE:VERT}),EmC(438)]}),
-          new TableRow({children:[C('Cotisations obligatoires totales',{w:3800}),C(fmt(d.sal.ret_sal+d.sal.ret_pat),{w:2700,align:AlignmentType.RIGHT}),C(fmt(d.cotis_oblig),{w:2700,align:AlignmentType.RIGHT}),EmC(438)]}),
-          new TableRow({children:[C('Retraite suppl. / PER',{w:3800}),C(fmt(d.ret_coll),{w:2700,align:AlignmentType.RIGHT}),C(fmt(d.madelin_ret),{w:2700,align:AlignmentType.RIGHT}),EmC(438)]}),
-          new TableRow({children:[
-            C('Effort retraite supplémentaire',{w:3800,bold:true}),
-            C(fmt(d.sal.ret_sal+d.sal.ret_pat+d.ret_coll),{w:2700,align:AlignmentType.RIGHT,bold:true,bg:GRIS}),
-            C(fmt(d.madelin_ret),{w:2700,align:AlignmentType.RIGHT,bold:true,bg:GRIS}),
-            EmC(438)]}),
-          new TableRow({children:[C('Couverture chômage',{w:3800}),C('Oui (ARE)',{w:2700,color:VERT,bold:true}),C('Non (sauf Madelin)',{w:2700,color:ROUGE}),EmC(438)]}),
-          new TableRow({children:[C('Capacité PER restante',{w:3800}),C('—',{w:2700}),C(fmt(d.cap_ret),{w:2700,align:AlignmentType.RIGHT,bold:true,color:d.cap_ret>0?VERT:'000000'}),EmC(438)]}),
-        ]}),
-        new Paragraph({spacing:{before:80},children:[new TextRun({text:'',font:'Arial'})]}),
-        N(`Le salarié génère plus de droits retraite via l'AGIRC-ARRCO. La table de référence par caisse (${d.caisse_ro}) donne un taux de charge global incluant la part retraite, sans détail ligne par ligne. Écart compensable via PER/Madelin (capacité restante : ${fmt(d.cap_ret)}).`),
-
-        // 5. MENTIONS
+        // 4. MENTIONS
         new Paragraph({children:[new PageBreak()]}),
         TS('Mentions légales et avertissements'),
         new Paragraph({spacing:{before:120},children:[new TextRun({text:'',font:'Arial'})]}),
