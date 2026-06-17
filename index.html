@@ -391,7 +391,6 @@ function compute(){
   const pl = plafonds(tns_net);
   const cap_ret  = Math.max(0, pl.ret_max  - madelin_ret);
   const cap_prev = Math.max(0, pl.prev_max - madelin_prev);
-  const cap_cho  = pl.cho_max;
   const trim_tns = tns_net >= PASS ? 4 : tns_net >= PASS*0.75 ? 3 : tns_net >= PASS*0.5 ? 2 : 1;
 
   // Stocker pour export
@@ -399,7 +398,7 @@ function compute(){
         madelin_ret, madelin_prev, sante_ind, madelin_total,
         sal, net_sal, cout_sal_reel,
         tns_net, tns_cot, cout_tns_reel,
-        diff_net, diff_cout, avantage, pl, cap_ret, cap_prev, cap_cho, trim_tns };
+        diff_net, diff_cout, avantage, pl, cap_ret, cap_prev, trim_tns };
 
   // ── Métriques
   document.getElementById('metrics').innerHTML = `
@@ -478,13 +477,6 @@ function compute(){
       <div class="pc-formula">3,75 % × BI + 7 % × PASS</div>
       <div class="pc-status">${okFmt(madelin_prev, pl.prev_max)}</div>
       <div class="pc-cap">Versé : ${fmt(madelin_prev)} — Capacité restante : <strong class="${cap_prev>0?'ok-text':''}">${fmt(cap_prev)}</strong></div>
-    </div>
-    <div class="plaf-card">
-      <div class="pc-label">Madelin chômage</div>
-      <div class="pc-val">${fmt(pl.cho_max)}</div>
-      <div class="pc-formula">2,5 % × PASS</div>
-      <div class="pc-status">${okFmt(madelin_cho, pl.cho_max)}</div>
-      <div class="pc-cap">Versé : ${fmt(madelin_cho)} — Capacité restante : <strong class="${cap_cho>0?'ok-text':''}">${fmt(cap_cho)}</strong></div>
     </div>`;
 
   document.getElementById('cap-grid').innerHTML = `
@@ -745,12 +737,13 @@ async function generateWord(){
           LT('Invalidité-Décès','—',fmt(d.tns_cot.inv)),
           LT('CSG / CRDS','—',fmt(d.tns_cot.csg+d.tns_cot.crds)),
           LT('Sous-total charges sociales',fmt(d.cout_total),fmt(d.tns_cot.total),{bl:true,bgS:GRIS,bgT:GRIS}),
-          LT('CONTRATS COMPLÉMENTAIRES','','',{bl:true,bg:BLEU_C}),
-          LT('Retraite collective / PER Madelin',fmt(d.ret_coll),fmt(d.madelin_ret)),
-          LT('Prévoyance collective / individuelle',fmt(d.prev_coll),fmt(d.madelin_prev)),
+          LT('CONTRATS &amp; ÉPARGNES COMPLÉMENTAIRES','','',{bl:true,bg:BLEU_C}),
+          LT('Retraite régime obligatoire / PER Madelin',fmt(d.ret_coll),fmt(d.madelin_ret)),
+          LT('Retraite Supp',d.ret_supp>0?fmt(d.ret_supp):'—','—'),
+          LT('Autres épargnes',d.autres_epargnes>0?fmt(d.autres_epargnes):'—','—'),
+          LT('Prévoyance collective / Madelin',fmt(d.prev_coll),fmt(d.madelin_prev)),
           LT('Santé collective / individuelle',fmt(d.sante_coll),fmt(d.sante_ind)),
-          LT('Madelin chômage','Inclus URSSAF',fmt(d.madelin_cho||0)),
-          LT('Sous-total contrats',fmt(d.ret_coll+d.prev_coll+d.sante_coll),fmt(d.madelin_total+d.sante_ind),{bl:true,bgS:GRIS,bgT:GRIS}),
+          LT('Sous-total contrats',fmt(d.ret_coll+d.ret_supp+d.autres_epargnes+d.prev_coll+d.sante_coll),fmt(d.madelin_total+d.sante_ind),{bl:true,bgS:GRIS,bgT:GRIS}),
           new TableRow({children:[
             C('COÛT TOTAL RÉEL SOCIÉTÉ',{w:4200,bold:true,bg:BLEU,color:BLANC,bc:BLEU}),
             C(fmt(d.cout_sal_reel),{w:2400,bold:true,bg:BLEU,color:BLANC,align:AlignmentType.RIGHT,bc:BLEU}),
@@ -776,10 +769,6 @@ async function generateWord(){
             C('Prévoyance Madelin',{w:3000}), C(fmt(d.pl.prev_max),{w:2000,align:AlignmentType.RIGHT}),
             C(fmt(d.madelin_prev),{w:2000,align:AlignmentType.RIGHT}),
             C(fmt(d.cap_prev),{w:2000,align:AlignmentType.RIGHT,bold:true,color:d.cap_prev>0?VERT:ROUGE}), EmC(638)]}),
-          new TableRow({children:[
-            C('Madelin chômage',{w:3000}), C(fmt(d.pl.cho_max),{w:2000,align:AlignmentType.RIGHT}),
-            C(fmt(d.madelin_cho),{w:2000,align:AlignmentType.RIGHT}),
-            C(fmt(d.cap_cho),{w:2000,align:AlignmentType.RIGHT,bold:true,color:d.cap_cho>0?VERT:ROUGE}), EmC(638)]}),
         ]}),
         new Paragraph({spacing:{before:80},children:[new TextRun({text:'',font:'Arial'})]}),
         N('Déductibilité Madelin conditionnée au paiement des cotisations SSI sans retard. Santé individuelle non déductible en Madelin.'),
