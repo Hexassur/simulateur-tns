@@ -5,7 +5,31 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Comparateur TNS / Dirigeant Salarié — Hexassur</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js"></script>
+<script>
+// Chargement dynamique de docx.js avec CDN de secours (certains chemins UMD
+// changent selon la version / le CDN, donc on tente plusieurs sources).
+window.__docxLoadPromise = (function(){
+  const sources = [
+    'https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js',
+    'https://unpkg.com/docx@8.5.0/build/index.umd.js',
+    'https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js'
+  ];
+  function tryLoad(i){
+    return new Promise((resolve,reject)=>{
+      if(i>=sources.length) return reject(new Error('Toutes les sources docx.js ont échoué'));
+      const s=document.createElement('script');
+      s.src=sources[i];
+      s.onload=()=>{
+        if(window.docx) resolve();
+        else tryLoad(i+1).then(resolve).catch(reject);
+      };
+      s.onerror=()=>tryLoad(i+1).then(resolve).catch(reject);
+      document.head.appendChild(s);
+    });
+  }
+  return tryLoad(0);
+})();
+</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
@@ -626,8 +650,13 @@ function resetForm(){
 async function exportWord(){
   const btn = document.getElementById('btn-export');
   btn.disabled = true;
-  btn.textContent = '⏳ Génération en cours...';
+  btn.textContent = '⏳ Chargement du module Word...';
   try {
+    await window.__docxLoadPromise;
+    if(typeof docx === 'undefined' || !docx.Document){
+      throw new Error('Le module de génération Word (docx.js) n\'a pas pu être chargé. Vérifie ta connexion internet et réessaie. Si le problème persiste, le CDN est peut-être temporairement indisponible.');
+    }
+    btn.textContent = '⏳ Génération en cours...';
     await generateWord();
   } catch(e) {
     alert('Erreur lors de la génération : ' + e.message);
