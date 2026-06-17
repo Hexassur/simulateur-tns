@@ -211,7 +211,7 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
   <!-- PLAFOND PER -->
   <div class="card">
     <div class="card-title">🎯 Plafond PER / Madelin retraite</div>
-    <div class="plaf-grid" id="plaf-grid" style="grid-template-columns:1fr"></div>
+    <div class="plaf-grid" id="plaf-grid" style="grid-template-columns:2fr 1fr"></div>
   </div>
 
   <!-- TABLE DE RÉFÉRENCE -->
@@ -591,6 +591,11 @@ function compute(){
       <div class="pc-formula">10 % × BI + 15 % × (BI entre 1 et 8 PASS) — BI = rémunération de gérance projetée (${fmt(tns_net)})</div>
       <div class="pc-status">${okFmt(madelin_ret, pl.ret_max)}</div>
       <div class="pc-cap">Versé : ${fmt(madelin_ret)} — Capacité restante : <strong class="${cap_ret>0?'ok-text':''}">${fmt(cap_ret)}</strong></div>
+    </div>
+    <div class="plaf-card" style="background:#F8FAFB">
+      <div class="pc-label">Plafond minimum garanti</div>
+      <div class="pc-val" style="font-size:17px">${fmt(PASS*0.10)}</div>
+      <div class="pc-formula">10 % du PASS — plancher réglementaire applicable même à rémunération nulle ou faible.</div>
     </div>`;
 
 }
