@@ -196,6 +196,7 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
         <select id="caisse_ro">
           <option value="SSI">SSI</option>
           <option value="CIPAV">CIPAV</option>
+          <option value="MSA">MSA (taux à compléter)</option>
         </select>
       </div>
       <div class="field"><label>Rémunération de gérance prévisionnelle (€/an)</label><input type="number" id="remu_gerance" value="42000" step="500"></div>
@@ -217,7 +218,7 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
   <!-- TABLE DE RÉFÉRENCE -->
   <div class="card">
     <div class="card-title">📊 Table de référence — Taux de charges régime obligatoire</div>
-    <div style="font-size:11px;color:#888;margin-bottom:10px">Tranches de rémunération annuelle (montant prélevé, avant URSSAF/taxes) — taux appliqué selon la tranche atteinte. Cette table peut être ajustée dans le code source pour affiner les seuils.</div>
+    <div style="font-size:11px;color:#888;margin-bottom:10px">Tranches de rémunération annuelle (montant prélevé, avant URSSAF/taxes) — taux appliqué selon la tranche atteinte.</div>
     <div style="max-height:220px;overflow-y:auto;border:1px solid #E0E4E8;border-radius:6px;display:flex;justify-content:center">
       <table id="table-ro" style="width:auto;min-width:0;border-collapse:collapse;font-size:12px">
         <thead style="position:sticky;top:0;background:#082C38;color:#fff">
@@ -226,6 +227,7 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
         <tbody id="table-ro-body"></tbody>
       </table>
     </div>
+    <div style="font-size:11px;color:#AAA;margin-top:8px;font-style:italic">* MSA : taux à compléter — colonne affichée à titre indicatif, non utilisable dans les calculs. Rémunérations &gt; 120 000 € : table non renseignée pour l'instant.</div>
   </div>
 
   <!-- EXPORT BAR -->
@@ -253,64 +255,59 @@ const SMIC_AN = 20004;
 
 // ── Table de référence — Taux de charges régime obligatoire ─────────────────
 // Tranches de rémunération annuelle (montant prélevé, avant URSSAF/taxes)
-// Source : table cabinet Hexassur — à ajuster si effets de seuil constatés.
-const CAISSES = ['SSI','CIPAV'];
+// Source : table cabinet Hexassur — SSI et CIPAV 2026 / MSA à compléter
+const CAISSES = ['SSI','CIPAV','MSA'];
 const TABLE_RO = [
-  // [borneBasse, borneHaute, {SSI: taux, CIPAV: taux}]
-  [1,      12000,  {SSI:0.45, CIPAV:0.45}],
-  [12001,  18000,  {SSI:0.45, CIPAV:0.45}],
-  [18001,  24000,  {SSI:0.45, CIPAV:0.45}],
-  [24001,  30000,  {SSI:0.45, CIPAV:0.45}],
-  [30001,  36000,  {SSI:0.45, CIPAV:0.45}],
-  [36001,  42000,  {SSI:0.45, CIPAV:0.45}],
-  [42001,  48000,  {SSI:0.45, CIPAV:0.45}],
-  [48001,  54000,  {SSI:0.45, CIPAV:0.45}],
-  [54001,  60000,  {SSI:0.45, CIPAV:0.45}],
-  [60001,  66000,  {SSI:0.45, CIPAV:0.45}],
-  [66001,  72000,  {SSI:0.45, CIPAV:0.45}],
-  [72001,  78000,  {SSI:0.45, CIPAV:0.45}],
-  [78001,  84000,  {SSI:0.45, CIPAV:0.45}],
-  [84001,  90000,  {SSI:0.45, CIPAV:0.45}],
-  [90001,  96000,  {SSI:0.45, CIPAV:0.45}],
-  [96001,  102000, {SSI:0.45, CIPAV:0.45}],
-  [102001, 108000, {SSI:0.45, CIPAV:0.45}],
-  [108001, 114000, {SSI:0.45, CIPAV:0.45}],
-  [114001, 120000, {SSI:0.45, CIPAV:0.45}],
-  [120001, 126000, {SSI:0.45, CIPAV:0.45}],
-  [126001, 132000, {SSI:0.45, CIPAV:0.45}],
-  [132001, 138000, {SSI:0.45, CIPAV:0.45}],
-  [138001, 144000, {SSI:0.45, CIPAV:0.45}],
-  [144001, 150000, {SSI:0.45, CIPAV:0.45}],
-  [150001, 156000, {SSI:0.45, CIPAV:0.45}],
-  [156001, 162000, {SSI:0.45, CIPAV:0.45}],
-  [162001, 168000, {SSI:0.45, CIPAV:0.45}],
-  [168001, 174000, {SSI:0.45, CIPAV:0.45}],
-  [174001, 180000, {SSI:0.45, CIPAV:0.45}],
-  [180001, 186000, {SSI:0.45, CIPAV:0.45}],
-  [186001, 192000, {SSI:0.45, CIPAV:0.45}],
-  [192001, 198000, {SSI:0.45, CIPAV:0.45}],
-  [198001, 204000, {SSI:0.45, CIPAV:0.45}],
-  [204001, 210000, {SSI:0.45, CIPAV:0.45}],
+  // [borneBasse, borneHaute, {SSI: taux, CIPAV: taux, MSA: taux}]
+  [1,      12000,  {SSI:0.408, CIPAV:0.339, MSA:null}],
+  [12001,  18000,  {SSI:0.412, CIPAV:0.343, MSA:null}],
+  [18001,  24000,  {SSI:0.434, CIPAV:0.357, MSA:null}],
+  [24001,  30000,  {SSI:0.454, CIPAV:0.373, MSA:null}],
+  [30001,  36000,  {SSI:0.464, CIPAV:0.383, MSA:null}],
+  [36001,  42000,  {SSI:0.474, CIPAV:0.389, MSA:null}],
+  [42001,  48000,  {SSI:0.464, CIPAV:0.402, MSA:null}],
+  [48001,  54000,  {SSI:0.458, CIPAV:0.417, MSA:null}],
+  [54001,  57000,  {SSI:0.457, CIPAV:0.434, MSA:null}],
+  [57001,  60000,  {SSI:0.460, CIPAV:0.451, MSA:null}],
+  [60001,  66000,  {SSI:0.453, CIPAV:0.464, MSA:null}],
+  [66001,  72000,  {SSI:0.441, CIPAV:0.466, MSA:null}],
+  [72001,  78000,  {SSI:0.431, CIPAV:0.469, MSA:null}],
+  [78001,  84000,  {SSI:0.424, CIPAV:0.474, MSA:null}],
+  [84001,  90000,  {SSI:0.418, CIPAV:0.478, MSA:null}],
+  [90001,  96000,  {SSI:0.412, CIPAV:0.479, MSA:null}],
+  [96001,  102000, {SSI:0.405, CIPAV:0.482, MSA:null}],
+  [102001, 108000, {SSI:0.401, CIPAV:0.483, MSA:null}],
+  [108001, 114000, {SSI:0.397, CIPAV:0.484, MSA:null}],
+  [114001, 120000, {SSI:0.393, CIPAV:0.486, MSA:null}],
 ];
 
 function tauxRO(remuneration, caisse){
   for(const [bas, haut, taux] of TABLE_RO){
-    if(remuneration >= bas && remuneration <= haut) return taux[caisse] ?? null;
+    if(remuneration >= bas && remuneration <= haut){
+      const t = taux[caisse];
+      return (t !== null && t !== undefined) ? t : null;
+    }
   }
-  // au-delà de la dernière tranche : on applique le taux de la dernière tranche connue
+  // Au-delà de la dernière tranche : taux de la dernière tranche connue
   const last = TABLE_RO[TABLE_RO.length-1];
-  return last[2][caisse] ?? null;
+  const t = last[2][caisse];
+  return (t !== null && t !== undefined) ? t : null;
 }
 
 function renderTableRO(){
   const head = document.getElementById('table-ro-head');
   const body = document.getElementById('table-ro-body');
-  head.innerHTML = `<th style="padding:6px 10px;text-align:left;width:130px">Tranche (€/an)</th>` +
-    CAISSES.map(c=>`<th style="padding:6px 14px;text-align:right;width:70px">${c}</th>`).join('');
+  head.innerHTML = `<th style="padding:6px 10px;text-align:center;width:130px">Tranche (€/an)</th>` +
+    CAISSES.map(c=>`<th style="padding:6px 14px;text-align:center;width:70px">${c}${c==='MSA'?'*':''}</th>`).join('');
   body.innerHTML = TABLE_RO.map(([bas,haut,taux],i)=>`
     <tr style="background:${i%2?'#FAFBFC':'#fff'}">
-      <td style="padding:5px 10px;border-bottom:1px solid #EEE;width:130px;white-space:nowrap">${bas.toLocaleString('fr-FR')} – ${haut.toLocaleString('fr-FR')}</td>
-      ${CAISSES.map(c=>`<td style="padding:5px 14px;text-align:right;border-bottom:1px solid #EEE;width:70px">${(taux[c]*100).toFixed(0)} %</td>`).join('')}
+      <td style="padding:5px 10px;border-bottom:1px solid #EEE;width:130px;white-space:nowrap;text-align:center">${bas.toLocaleString('fr-FR')} – ${haut.toLocaleString('fr-FR')}</td>
+      ${CAISSES.map(c=>{
+        const t = taux[c];
+        return t!==null && t!==undefined
+          ? `<td style="padding:5px 14px;text-align:center;border-bottom:1px solid #EEE;width:70px">${(t*100).toFixed(1)} %</td>`
+          : `<td style="padding:5px 14px;text-align:center;border-bottom:1px solid #EEE;width:70px;color:#BBB;font-style:italic">—</td>`;
+      }).join('')}
     </tr>`).join('');
 }
 
@@ -508,8 +505,8 @@ function compute(){
 
   // Affichage info taux appliqué
   document.getElementById('taux-ro-info').innerHTML = taux_charge!==null
-    ? `Taux de charge appliqué (${caisse_ro}, tranche ${fmt(remu_gerance)}) : <strong>${(taux_charge*100).toFixed(0)} %</strong> — Cotisations obligatoires estimées : <strong>${fmt(cotis_oblig)}</strong>`
-    : `<span style="color:#8B1A1A">Aucun taux trouvé pour cette tranche / caisse — vérifier la table de référence.</span>`;
+    ? `Taux de charge appliqué (${caisse_ro}, tranche ${fmt(remu_gerance)}) : <strong>${(taux_charge*100).toFixed(1)} %</strong> — Cotisations obligatoires estimées : <strong>${fmt(cotis_oblig)}</strong>`
+    : `<span style="color:#A0600A">⚠ Taux MSA non encore renseigné pour cette tranche — calcul non disponible. Renseignez les taux MSA dans la table de référence pour utiliser cette caisse.</span>`;
 
   const diff_net  = tns_net - net_sal;
   const diff_cout = cout_tns_reel - cout_sal_reel;
@@ -823,7 +820,7 @@ async function generateWord(){
           LT('Coût global santé',fmt(d.sante_coll),fmt(d.sante_ind)),
           LT('Coût global prévoyance',fmt(d.prev_coll),fmt(d.madelin_prev)),
           LT('Coût retraite obligatoire',fmt(d.ret_coll),fmt(d.cotis_oblig)),
-          LT('Taux de charge appliqué','—',d.taux_charge!==null?(d.taux_charge*100).toFixed(0)+' % ('+d.caisse_ro+')':'—'),
+          LT('Taux de charge appliqué','—',d.taux_charge!==null?(d.taux_charge*100).toFixed(1)+' % ('+d.caisse_ro+')':'—'),
           new TableRow({children:[
             C('COÛT TOTAL RÉEL SOCIÉTÉ',{w:4200,bold:true,bg:BLEU,color:BLANC,bc:BLEU}),
             C(fmt(d.cout_sal_reel),{w:2400,bold:true,bg:BLEU,color:BLANC,align:AlignmentType.RIGHT,bc:BLEU}),
