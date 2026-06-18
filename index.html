@@ -179,8 +179,9 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
     <div class="grid3">
       <div class="field"><label>Prévoyance collective — total (€/an)</label><input type="number" id="prev_coll" value="2573" step="100"></div>
       <div class="field"><label>Santé collective — total (€/an)</label><input type="number" id="sante_coll" value="1526" step="100"></div>
-      <div class="field"><label>Salaire net annuel (calculé)</label><input type="text" id="net_sal_display" readonly style="background:#F0F4F7;font-weight:700;color:#082C38"></div>
+      <div class="field"><label>Salaire net annuel (Silae)</label><input type="text" id="net_sal_display" readonly style="background:#F0F4F7;font-weight:700;color:#082C38" placeholder="— Import Silae requis"></div>
     </div>
+    <input type="hidden" id="tot_sal_reel" value="">
   </div>
 
   <div class="card">
@@ -395,6 +396,7 @@ function applyImport(data){
   document.getElementById('autres_epargnes').value = data.autres_epargnes || 0;
   document.getElementById('prev_coll').value    = data.prev_coll      || 0;
   document.getElementById('sante_coll').value   = data.sante_coll     || 0;
+  document.getElementById('tot_sal_reel').value = data.tot_sal        || '';
 
   const netCalc = (data.brut||0) - (data.tot_sal||0);
 
@@ -491,9 +493,19 @@ function compute(){
   const caisse_ro       = sv('caisse_ro');
   const remu_gerance    = v('remu_gerance');
 
-  const sal = salCot(brut);
-  const net_sal = sal.net;
-  document.getElementById('net_sal_display').value = fmt(net_sal);
+  // Net salarié : utilise les charges salariales réelles Silae si disponibles,
+  // sinon affiche un placeholder (les taux génériques ne sont pas fiables)
+  const tot_sal_reel_str = document.getElementById('tot_sal_reel').value;
+  const tot_sal_reel = tot_sal_reel_str !== '' ? parseFloat(tot_sal_reel_str) : null;
+  const net_sal = tot_sal_reel !== null ? brut - tot_sal_reel : null;
+
+  if(net_sal !== null){
+    document.getElementById('net_sal_display').value = fmt(net_sal);
+  } else {
+    document.getElementById('net_sal_display').value = '';
+  }
+
+  const sal = salCot(brut); // conservé pour les cotisations retraite dans l'onglet retraite
   const cout_sal_reel = cout_total + ret_coll + ret_supp + autres_epargnes + prev_coll + sante_coll;
   const madelin_total = madelin_ret + madelin_prev;
 
@@ -508,7 +520,7 @@ function compute(){
     ? `Taux de charge appliqué (${caisse_ro}, tranche ${fmt(remu_gerance)}) : <strong>${(taux_charge*100).toFixed(1)} %</strong> — Cotisations obligatoires estimées : <strong>${fmt(cotis_oblig)}</strong>`
     : `<span style="color:#A0600A">⚠ Taux MSA non encore renseigné pour cette tranche — calcul non disponible. Renseignez les taux MSA dans la table de référence pour utiliser cette caisse.</span>`;
 
-  const diff_net  = tns_net - net_sal;
+  const diff_net  = net_sal !== null ? tns_net - net_sal : null;
   const diff_cout = cout_tns_reel - cout_sal_reel;
   const avantage  = -diff_cout;
   const pl = plafonds(tns_net);
@@ -526,8 +538,8 @@ function compute(){
 
   // ── Métriques
   document.getElementById('metrics').innerHTML = `
-    <div class="met"><div class="ml">Net salarié</div><div class="mv">${fmt(net_sal)}</div><div class="ms">après cotis. sal.</div></div>
-    <div class="met"><div class="ml">Net TNS projeté</div><div class="mv">${fmt(tns_net)}</div><div class="ms ${diff_net>=0?'green':'red'}">${diff_net>=0?'+':''}${fmt(diff_net)}</div></div>
+    <div class="met"><div class="ml">Net salarié</div><div class="mv">${net_sal!==null?fmt(net_sal):'—'}</div><div class="ms">après cotis. sal. (Silae)</div></div>
+    <div class="met"><div class="ml">Net TNS projeté</div><div class="mv">${fmt(tns_net)}</div><div class="ms ${diff_net!==null?(diff_net>=0?'green':'red'):''}\">${diff_net!==null?(diff_net>=0?'+':'')+fmt(diff_net):'vs salarié : import Silae requis'}</div></div>
     <div class="met"><div class="ml">Coût total salarié</div><div class="mv">${fmt(cout_sal_reel)}</div><div class="ms">social + contrats</div></div>
     <div class="met"><div class="ml">Coût total TNS</div><div class="mv">${fmt(cout_tns_reel)}</div><div class="ms">SSI + contrats indiv.</div></div>
     <div class="met"><div class="ml">${avantage>=0?'Économie TNS':'Surcoût TNS'}</div>
@@ -537,11 +549,14 @@ function compute(){
   // ── Verdict
   const vEl = document.getElementById('verdict');
   vEl.className = 'verdict ' + (avantage>=0?'ok':'ko');
+  const diff_net_txt = diff_net!==null
+    ? `Net ${diff_net>=0?'supérieur':'inférieur'} de ${fmt(Math.abs(diff_net))} vs salarié.`
+    : `(comparaison nette non disponible — import Silae requis)`;
   vEl.innerHTML = `
     <div class="vt">${avantage>=0?'✅ Le statut TNS est plus avantageux':'⚠️ Le statut salarié reste moins coûteux'}</div>
     <div class="vs">${avantage>=0
-      ? `Économie annuelle de <strong>${fmt(avantage)}</strong> avec le statut TNS (contrats individuels inclus). Net ${diff_net>=0?'supérieur':'inférieur'} de ${fmt(Math.abs(diff_net))} vs salarié.`
-      : `Surcoût de <strong>${fmt(-avantage)}</strong> avec le statut TNS à protection comparable. Net ${diff_net>=0?'supérieur':'inférieur'} de ${fmt(Math.abs(diff_net))} vs salarié.`}
+      ? `Économie annuelle de <strong>${fmt(avantage)}</strong> avec le statut TNS (contrats individuels inclus). ${diff_net_txt}`
+      : `Surcoût de <strong>${fmt(-avantage)}</strong> avec le statut TNS à protection comparable. ${diff_net_txt}`}
       ${madelin_total>0?' Les cotisations Madelin ('+fmt(madelin_total)+') sont déductibles du résultat — avantage fiscal IR supplémentaire non intégré ici.':''}</div>`;
 
   // ── Comp cards — périmètre équivalent, lignes en vis-à-vis
@@ -612,6 +627,8 @@ function resetForm(){
     const el=document.getElementById(id);
     if(el.type==='text') el.value=''; else el.value=0;
   });
+  document.getElementById('tot_sal_reel').value = '';
+  document.getElementById('net_sal_display').value = '';
   document.getElementById('import-result').innerHTML='';
   compute();
 }
