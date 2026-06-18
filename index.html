@@ -160,6 +160,24 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
       <div class="iz-label"><strong>Déposer le fichier Excel Silae</strong> ou cliquer pour parcourir</div>
       <div class="iz-sub">Format attendu : Détail des cotisations annuelles (.xlsx) — colonnes Code, Salarial, Patronal</div>
     </div>
+    <div style="display:flex;align-items:center;gap:12px;margin-top:10px">
+      <label style="font-size:12px;color:#555;font-weight:600;white-space:nowrap">Période couverte par le fichier :</label>
+      <select id="nb_mois" style="height:34px;padding:0 10px;border:1px solid #CBD5E0;border-radius:6px;font-size:13px;background:#fff;color:#222;width:180px">
+        <option value="12" selected>12 mois (annuel complet)</option>
+        <option value="11">11 mois</option>
+        <option value="10">10 mois</option>
+        <option value="9">9 mois</option>
+        <option value="8">8 mois</option>
+        <option value="7">7 mois</option>
+        <option value="6">6 mois</option>
+        <option value="5">5 mois</option>
+        <option value="4">4 mois</option>
+        <option value="3">3 mois</option>
+        <option value="2">2 mois</option>
+        <option value="1">1 mois</option>
+      </select>
+      <span id="nb_mois_info" style="font-size:11px;color:#888;font-style:italic"></span>
+    </div>
     <div id="import-result"></div>
   </div>
 
@@ -171,17 +189,19 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
       <div class="field"><label>Salaire brut annuel (€)</label><input type="number" id="brut" value="60168" step="100"></div>
       <div class="field"><label>Coût total société — social (€)</label><input type="number" id="cout_total" value="87819" step="100"></div>
     </div>
+    <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.05em;margin:8px 0 6px">Cotisations supplémentaires et facultatives</div>
     <div class="grid3">
-      <div class="field"><label>Retraite régime obligatoire — AGIRC-ARRCO (€/an)</label><input type="number" id="ret_coll" value="8140" step="100"></div>
-      <div class="field"><label>Retraite Supp — art. 83 / PEE patronal (€/an)</label><input type="number" id="ret_supp" value="0" step="100"></div>
-      <div class="field"><label>Autres épargnes — PEE/PERCO/intéressement (€/an)</label><input type="number" id="autres_epargnes" value="0" step="100"></div>
+      <div class="field"><label>Retraite Supp — Art. 83 / PEROB (€/an)</label><input type="number" id="ret_supp" value="0" step="100"></div>
+      <div class="field"><label>Épargne salariale PEI (€/an)</label><input type="number" id="pei" value="0" step="100"></div>
+      <div class="field"><label>Épargne retraite PERECO (€/an)</label><input type="number" id="pereco" value="0" step="100"></div>
     </div>
     <div class="grid3">
-      <div class="field"><label>Prévoyance collective — total (€/an)</label><input type="number" id="prev_coll" value="2573" step="100"></div>
-      <div class="field"><label>Santé collective — total (€/an)</label><input type="number" id="sante_coll" value="1526" step="100"></div>
-      <div class="field"><label>Salaire net annuel (Silae)</label><input type="text" id="net_sal_display" readonly style="background:#F0F4F7;font-weight:700;color:#082C38" placeholder="— Import Silae requis"></div>
+      <div class="field"><label>Salaire net annuel avant IR (Silae)</label><input type="text" id="net_sal_display" readonly style="background:#F0F4F7;font-weight:700;color:#082C38" placeholder="— Import Silae requis"></div>
     </div>
     <input type="hidden" id="tot_sal_reel" value="">
+    <input type="hidden" id="ret_coll" value="0">
+    <input type="hidden" id="prev_coll" value="0">
+    <input type="hidden" id="sante_coll" value="0">
   </div>
 
   <div class="card">
@@ -320,19 +340,28 @@ function sv(id){ return document.getElementById(id).value; }
 
 // ── Parseur Silae ────────────────────────────────────────────────────────────
 const RET_OBLIG_CODES = ['AA201','AA202','AA211','AA212','AA221','AA222','AA031','AA035'];
-const RET_SUPP_CODES  = ['PS010','PS020'];
-const PREV_CODES = ['PR001','PR010','PR250','PR252'];
-const SANTE_CODES= ['PS079'];
-const EPARGNE_CODES = [];
+const PREV_CODES      = ['PR001','PR010','PR250','PR252','PS010','PS020'];
+const SANTE_CODES     = ['PS079'];
+// GR0xx = retraite supplémentaire (Art.83, PEROB)
+// SS018 = forfait social sur épargne salariale (PERECO/intéressement)
+
+// Mots-clés colonne B (fallback si pas de code GR)
+const RET_SUPP_KEYWORDS = ['retraite supplémentaire','retraite supp','art 83','article 83','perob','retraite tranche a','retraite tranche b'];
+const PEI_KEYWORDS      = ['participation','intéressement','interessement','pei','p.e.i'];
+const PERECO_KEYWORDS   = ['pereco','percol','perco','per collectif','épargne retraite collective','epargne retraite collective'];
+
+function matchKeywords(lib, keywords){
+  const l = lib.toLowerCase();
+  return keywords.some(k => l.includes(k));
+}
 
 function parseSilae(wb){
   const ws = wb.Sheets[wb.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
   let nom='', periode='';
-  let brut=0, tot_sal=0, tot_pat=0;
-  let ret_sal=0, ret_pat=0, ret_supp_sal=0, ret_supp_pat=0;
-  let prev_sal=0, prev_pat=0, sante_sal=0, sante_pat=0;
-  let basesSal=[];
+  let brut=0, tot_sal=0, tot_pat=0, pas=0;
+  let ret_supp_sal=0, ret_supp_pat=0;
+  let pei_sal=0, pei_pat=0, pereco_sal=0, pereco_pat=0;
 
   // Titre ligne 0
   if(rows[0] && rows[0][0]){
@@ -348,75 +377,120 @@ function parseSilae(wb){
   for(let i=0;i<rows.length;i++){ if(rows[i][0]==='Code'){hr=i;break;} }
   if(hr<0) return null;
 
-  const C = {code:0,lib:1,sal:5,pat:8};
+  const C = {code:0, lib:1, sal:5, pat:8, baseP:6, baseS:3};
 
   for(let i=hr+1;i<rows.length;i++){
-    const r = rows[i];
+    const r    = rows[i];
     const code = String(r[C.code]||'').trim();
-    const lib  = String(r[C.lib ]||'');
+    const lib  = String(r[C.lib]||'');
     const sal  = parseFloat(r[C.sal])||0;
     const pat  = parseFloat(r[C.pat])||0;
-    const baseP= parseFloat(r[6])||0;
-    const baseS= parseFloat(r[3])||0;
+    const baseP= parseFloat(r[C.baseP])||0;
 
-    // Important : la ligne "Total des charges" a un Code VIDE — il faut donc
-    // traiter cette détection AVANT le "continue" sur code vide, sinon le total
-    // patronal/salarial n'est jamais récupéré (bug constaté en production).
+    // Total des charges (code vide) — traité AVANT le continue
     if(lib.includes('Total des charges')){ tot_sal=sal||tot_sal; tot_pat=pat||tot_pat; }
 
     if(code==='') continue;
-    if(code==='SS003'||code==='SS004') basesSal.push(baseP||baseS);
-    if(RET_OBLIG_CODES.includes(code)) { ret_sal+=sal;       ret_pat+=pat; }
-    if(RET_SUPP_CODES.includes(code))  { ret_supp_sal+=sal;  ret_supp_pat+=pat; }
-    if(PREV_CODES.includes(code))      { prev_sal+=sal;       prev_pat+=pat; }
-    if(SANTE_CODES.includes(code))     { sante_sal+=sal;      sante_pat+=pat; }
+
+    // Brut annuel = base patronale SS005 (Allocations familiales = assiette brut total)
+    if(code==='SS005' && baseP>0) brut = baseP;
+
+    // PAS = impôt à la source, à exclure du net
+    if(code==='K07') pas += sal;
+
+    // Retraite supp : codes GR0xx OU mots-clés colonne B
+    if(code.startsWith('GR') || matchKeywords(lib, RET_SUPP_KEYWORDS)){
+      ret_supp_sal+=sal; ret_supp_pat+=pat;
+    }
+
+    // PERECO : détection uniquement par mots-clés colonne B
+    if(matchKeywords(lib, PERECO_KEYWORDS)){ pereco_sal+=sal; pereco_pat+=pat; }
+
+    // PEI : mots-clés colonne B
+    if(matchKeywords(lib, PEI_KEYWORDS) && !matchKeywords(lib, PERECO_KEYWORDS)){
+      pei_sal+=sal; pei_pat+=pat;
+    }
   }
 
-  brut = basesSal.length ? Math.max(...basesSal.filter(x=>x>0)) : 0;
+  const net_avant_ir = brut - (tot_sal - pas);
+
   return {
     nom, periode,
     brut:          Math.round(brut),
     tot_sal:       Math.round(tot_sal),
     tot_pat:       Math.round(tot_pat),
+    pas:           Math.round(pas),
     cout_total:    Math.round(brut + tot_pat),
-    ret_coll:      Math.round(ret_sal + ret_pat),
+    net_avant_ir:  Math.round(net_avant_ir),
     ret_supp:      Math.round(ret_supp_sal + ret_supp_pat),
-    autres_epargnes: 0,
-    prev_coll:     Math.round(prev_sal + prev_pat),
-    sante_coll:    Math.round(sante_sal + sante_pat),
+    pei:           Math.round(pei_sal + pei_pat),
+    pereco:        Math.round(pereco_sal + pereco_pat),
   };
 }
 
-function applyImport(data){
-  document.getElementById('nom').value          = data.nom            || '';
-  document.getElementById('brut').value         = data.brut           || 0;
-  document.getElementById('cout_total').value   = data.cout_total     || 0;
-  document.getElementById('ret_coll').value     = data.ret_coll       || 0;
-  document.getElementById('ret_supp').value     = data.ret_supp       || 0;
-  document.getElementById('autres_epargnes').value = data.autres_epargnes || 0;
-  document.getElementById('prev_coll').value    = data.prev_coll      || 0;
-  document.getElementById('sante_coll').value   = data.sante_coll     || 0;
-  document.getElementById('tot_sal_reel').value = data.tot_sal        || '';
+// Stockage des données brutes Silae (avant annualisation)
+let _silaeRaw = null;
 
-  const netCalc = (data.brut||0) - (data.tot_sal||0);
+function applyImport(data){
+  _silaeRaw = data;
+  refreshImport();
+}
+
+function refreshImport(){
+  if(!_silaeRaw) return;
+  const data = _silaeRaw;
+  const nb = parseInt(document.getElementById('nb_mois').value) || 12;
+  const ratio = 12 / nb;
+  const annualise = v => (v||0) ? Math.round(v * ratio) : 0;
+
+  // Valeurs annualisées
+  const brut_a       = annualise(data.brut);
+  const tot_sal_a    = annualise(data.tot_sal);
+  const pas_a        = annualise(data.pas);
+  const cout_total_a = annualise(data.cout_total);
+  const ret_supp_a   = annualise(data.ret_supp);
+  const pei_a        = annualise(data.pei);
+  const pereco_a     = annualise(data.pereco);
+  const net_a        = annualise(data.net_avant_ir);
+
+  // Pré-remplir les champs
+  document.getElementById('nom').value          = data.nom || '';
+  document.getElementById('brut').value         = brut_a;
+  document.getElementById('cout_total').value   = cout_total_a;
+  document.getElementById('ret_supp').value     = ret_supp_a;
+  document.getElementById('pei').value          = pei_a;
+  document.getElementById('pereco').value       = pereco_a;
+  document.getElementById('tot_sal_reel').value = tot_sal_a - pas_a;
+  document.getElementById('net_sal_display').value = fmt(net_a);
+  document.getElementById('remu_gerance').value = net_a; // base de comparaison = net salarié avant IR
+
+  // Info proratisation
+  const infoEl = document.getElementById('nb_mois_info');
+  if(nb < 12){
+    infoEl.textContent = `→ Données annualisées × ${ratio.toFixed(2)} (${nb} mois → 12 mois)`;
+    infoEl.style.color = '#2A5F8A';
+  } else {
+    infoEl.textContent = '';
+  }
+
+  const annot_a = nb < 12 ? ` <span style="font-size:10px;color:#3B6D11;font-style:italic">(annualisé)</span>` : '';
 
   document.getElementById('import-result').innerHTML = `
     <div class="import-ok">
       <div class="ok-title">✅ Import réussi — ${data.nom||'Dirigeant'} ${data.periode?'('+data.periode+')':''}</div>
+      ${nb < 12 ? `<div style="font-size:11px;background:#EBF3FB;color:#2A5F8A;padding:6px 10px;border-radius:4px;margin-bottom:8px">ℹ Données sur ${nb} mois — annualisées sur 12 mois pour les calculs ci-dessous.</div>` : ''}
       <div class="import-grid" style="grid-template-columns:repeat(3,1fr)">
-        <div class="import-item"><div class="ik">Rémunération nette annuelle</div><div class="iv">${fmt(netCalc)}</div></div>
-        <div class="import-item"><div class="ik">Rémunération brute annuelle</div><div class="iv">${fmt(data.brut)}</div></div>
-        <div class="import-item"><div class="ik">Coût total chargé</div><div class="iv">${fmt(data.cout_total)}</div></div>
+        <div class="import-item"><div class="ik">Rémunération nette${annot_a}</div><div class="iv">${fmt(net_a)}</div></div>
+        <div class="import-item"><div class="ik">Rémunération brute${annot_a}</div><div class="iv">${fmt(brut_a)}</div></div>
+        <div class="import-item"><div class="ik">Coût total chargé${annot_a}</div><div class="iv">${fmt(cout_total_a)}</div></div>
       </div>
-      <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em;margin:10px 0 6px">Dont</div>
+      <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em;margin:10px 0 6px">Cotisations supplémentaires détectées</div>
       <div class="import-grid">
-        <div class="import-item"><div class="ik">Santé collective</div><div class="iv">${fmt(data.sante_coll)}</div></div>
-        <div class="import-item"><div class="ik">Prévoyance collective</div><div class="iv">${fmt(data.prev_coll)}</div></div>
-        <div class="import-item"><div class="ik">Retraite obligatoire</div><div class="iv">${fmt(data.ret_coll)}</div></div>
-        <div class="import-item"><div class="ik">Retraite supplémentaire</div><div class="iv">${fmt(data.ret_supp)}</div></div>
-        <div class="import-item"><div class="ik">Épargne salariale (PEI/PERECO...)</div><div class="iv">${fmt(data.autres_epargnes)}</div></div>
+        <div class="import-item"><div class="ik">Retraite supplémentaire</div><div class="iv">${ret_supp_a>0?fmt(ret_supp_a):'<span style="color:#AAA">non détecté</span>'}</div></div>
+        <div class="import-item"><div class="ik">Épargne PEI</div><div class="iv">${pei_a>0?fmt(pei_a):'<span style="color:#AAA">non détecté</span>'}</div></div>
+        <div class="import-item"><div class="ik">Épargne PERECO</div><div class="iv">${pereco_a>0?fmt(pereco_a):'<span style="color:#AAA">non détecté</span>'}</div></div>
       </div>
-      <div style="font-size:11px;color:#666;margin-top:8px">Les champs ont été pré-remplis. Tu peux les ajuster si nécessaire.</div>
+      <div style="font-size:11px;color:#666;margin-top:8px">Les champs ont été pré-remplis avec les valeurs annualisées. Tu peux les ajuster si nécessaire.</div>
     </div>`;
   compute();
 }
@@ -482,19 +556,19 @@ function plafonds(revNet){
 let R = {};
 
 function compute(){
-  const brut            = v('brut'), cout_total = v('cout_total');
-  const ret_coll        = v('ret_coll');
-  const ret_supp        = v('ret_supp');
-  const autres_epargnes = v('autres_epargnes');
-  const prev_coll       = v('prev_coll'), sante_coll = v('sante_coll');
-  const madelin_ret     = v('madelin_ret'), madelin_prev = v('madelin_prev');
-  const sante_ind       = v('sante_ind');
-  const nom             = sv('nom') || 'Dirigeant';
-  const caisse_ro       = sv('caisse_ro');
-  const remu_gerance    = v('remu_gerance');
+  const brut        = v('brut'), cout_total = v('cout_total');
+  const ret_coll    = v('ret_coll');
+  const ret_supp    = v('ret_supp');
+  const pei         = v('pei');
+  const pereco      = v('pereco');
+  const prev_coll   = v('prev_coll'), sante_coll = v('sante_coll');
+  const madelin_ret = v('madelin_ret'), madelin_prev = v('madelin_prev');
+  const sante_ind   = v('sante_ind');
+  const nom         = sv('nom') || 'Dirigeant';
+  const caisse_ro   = sv('caisse_ro');
+  const remu_gerance= v('remu_gerance');
 
-  // Net salarié : utilise les charges salariales réelles Silae si disponibles,
-  // sinon affiche un placeholder (les taux génériques ne sont pas fiables)
+  // Net salarié : utilise les charges salariales réelles Silae si disponibles
   const tot_sal_reel_str = document.getElementById('tot_sal_reel').value;
   const tot_sal_reel = tot_sal_reel_str !== '' ? parseFloat(tot_sal_reel_str) : null;
   const net_sal = tot_sal_reel !== null ? brut - tot_sal_reel : null;
@@ -505,8 +579,8 @@ function compute(){
     document.getElementById('net_sal_display').value = '';
   }
 
-  const sal = salCot(brut); // conservé pour les cotisations retraite dans l'onglet retraite
-  const cout_sal_reel = cout_total + ret_coll + ret_supp + autres_epargnes + prev_coll + sante_coll;
+  const sal = salCot(brut);
+  const cout_sal_reel = cout_total; // coût total société = la seule référence côté salarié
   const madelin_total = madelin_ret + madelin_prev;
 
   // ── Calcul TNS via table de référence (taux de charge par tranche × caisse)
@@ -529,7 +603,7 @@ function compute(){
   const trim_tns = tns_net >= PASS ? 4 : tns_net >= PASS*0.75 ? 3 : tns_net >= PASS*0.5 ? 2 : 1;
 
   // Stocker pour export
-  R = { nom, brut, cout_total, ret_coll, ret_supp, autres_epargnes, prev_coll, sante_coll,
+  R = { nom, brut, cout_total, ret_coll, ret_supp, pei, pereco, prev_coll, sante_coll,
         madelin_ret, madelin_prev, sante_ind, madelin_total,
         sal, net_sal, cout_sal_reel,
         caisse_ro, remu_gerance, taux_charge, cotis_oblig,
@@ -567,25 +641,27 @@ function compute(){
   document.getElementById('comp-cards').innerHTML = `
     <div class="ccard">
       <div class="ccard-head">Situation actuelle — Dirigeant salarié</div>
-      <div class="cline"><span class="cn">Coût salarial global (hors santé/prév./retraite)</span><span class="cv">${fmt(cout_salarial_global)}</span></div>
-      <div class="cline"><span class="cn">Coût global santé</span><span class="cv">${fmt(sante_coll)}</span></div>
-      <div class="cline"><span class="cn">Coût global prévoyance</span><span class="cv">${fmt(prev_coll)}</span></div>
-      <div class="cline"><span class="cn">Coût retraite obligatoire</span><span class="cv">${fmt(ret_coll)}</span></div>
+      <div class="cline"><span class="cn">Coût rémunération (cotisations oblig.)</span><span class="cv">${fmt(cout_sal_reel)}</span></div>
+      <div class="cline si"><span class="cn">dont Santé collective</span><span class="cv" style="color:#888;font-style:italic">% selon CCN</span></div>
+      <div class="cline si"><span class="cn">dont Prévoyance collective</span><span class="cv" style="color:#888;font-style:italic">% selon CCN</span></div>
+      <div class="cline si"><span class="cn">dont Retraite régime obligatoire</span><span class="cv" style="color:#888;font-style:italic">% selon CCN</span></div>
       <div class="cline tot"><span class="cn">Coût total réel</span><span class="cv">${fmt(cout_sal_reel)}</span></div>
-      <div class="cline sh"><span class="cn">Charges supplémentaires (info)</span><span class="cv"></span></div>
-      <div class="cline"><span class="cn">Retraite supplémentaire</span><span class="cv">${ret_supp>0?fmt(ret_supp):'—'}</span></div>
-      <div class="cline"><span class="cn">Épargne salariale (PEI/PERECO...)</span><span class="cv">${autres_epargnes>0?fmt(autres_epargnes):'—'}</span></div>
+      <div class="cline sh"><span class="cn">Dont dispositifs d'épargnes</span><span class="cv"></span></div>
+      <div class="cline si"><span class="cn">Épargne salariale PEI (participation, intéressement...)</span><span class="cv">${pei>0?fmt(pei):'—'}</span></div>
+      <div class="cline si"><span class="cn">Épargne retraite PERECO (retraite collective)</span><span class="cv">${pereco>0?fmt(pereco):'—'}</span></div>
+      <div class="cline si"><span class="cn">Retraite supplémentaire (Art. 83 / PEROB)</span><span class="cv">${ret_supp>0?fmt(ret_supp):'—'}</span></div>
     </div>
     <div class="ccard active">
       <div class="ccard-head tns">Projection TNS — Gérant majoritaire SARL/EURL</div>
-      <div class="cline"><span class="cn">Coût rémunération gérance global</span><span class="cv">${fmt(cout_gerance_global)}</span></div>
-      <div class="cline"><span class="cn">Coût global santé (Madelin)</span><span class="cv">${fmt(sante_ind)}</span></div>
-      <div class="cline"><span class="cn">Coût global prévoyance (Madelin)</span><span class="cv">${fmt(madelin_prev)}</span></div>
-      <div class="cline"><span class="cn">Coût retraite obligatoire (${caisse_ro})</span><span class="cv">${fmt(cotis_oblig)}</span></div>
+      <div class="cline"><span class="cn">Coût rémunération gérance (cotisations oblig. ${caisse_ro})</span><span class="cv">${fmt(cotis_oblig)}</span></div>
+      <div class="cline si"><span class="cn">Coût Santé (Madelin)</span><span class="cv">${fmt(sante_ind)}</span></div>
+      <div class="cline si"><span class="cn">Coût Prévoyance (Madelin)</span><span class="cv">${fmt(madelin_prev)}</span></div>
+      <div class="cline si"><span class="cn">Coût Plan Épargne Retraite - PER (Madelin)</span><span class="cv">${fmt(madelin_ret)}</span></div>
       <div class="cline tot"><span class="cn">Coût total réel</span><span class="cv">${fmt(cout_tns_reel)}</span></div>
-      <div class="cline sh"><span class="cn">Charges supplémentaires (info)</span><span class="cv"></span></div>
-      <div class="cline"><span class="cn">Retraite PER Madelin</span><span class="cv">${fmt(madelin_ret)}</span></div>
-      <div class="cline"><span class="cn">Épargne salariale (PEI/PERECO...)</span><span class="cv">—</span></div>
+      <div class="cline sh"><span class="cn">Dont dispositifs d'épargnes</span><span class="cv"></span></div>
+      <div class="cline si"><span class="cn">Épargne salariale PEI (participation, intéressement...)</span><span class="cv">—</span></div>
+      <div class="cline si"><span class="cn">Épargne retraite PERECO (retraite collective)</span><span class="cv">—</span></div>
+      <div class="cline si" style="font-style:italic;color:#AAA;font-size:11px"><span class="cn">Les TNS peuvent accéder aux dispositifs d'épargne salariale s'ils sont mis en place pour les salariés.</span><span class="cv"></span></div>
     </div>`;
 
   document.getElementById('note-comp').textContent =
@@ -622,14 +698,17 @@ function showTab(id, btn){
 
 // ── Reset ────────────────────────────────────────────────────────────────────
 function resetForm(){
-  ['nom','brut','cout_total','ret_coll','ret_supp','autres_epargnes','prev_coll','sante_coll',
+  ['nom','brut','cout_total','ret_supp','pei','pereco',
    'madelin_ret','madelin_prev','sante_ind','remu_gerance'].forEach(id=>{
     const el=document.getElementById(id);
-    if(el.type==='text') el.value=''; else el.value=0;
+    if(el && el.type==='text') el.value=''; else if(el) el.value=0;
   });
   document.getElementById('tot_sal_reel').value = '';
   document.getElementById('net_sal_display').value = '';
+  document.getElementById('nb_mois').value = '12';
+  document.getElementById('nb_mois_info').textContent = '';
   document.getElementById('import-result').innerHTML='';
+  _silaeRaw = null;
   compute();
 }
 
@@ -833,20 +912,17 @@ async function generateWord(){
         new Paragraph({spacing:{before:120},children:[new TextRun({text:'',font:'Arial'})]}),
         new Table({width:{size:9638,type:WidthType.DXA},columnWidths:[4200,2400,2400,638],rows:[
           new TableRow({children:[HC('Poste de charge',4200),HC('Salarié actuel',2400),HC('TNS projeté',2400),EmC(638)]}),
-          LT('Coût global (hors santé/prév./retraite)',fmt(d.cout_total-d.prev_coll-d.sante_coll-d.ret_coll),fmt(d.cotis_oblig)),
-          LT('Coût global santé',fmt(d.sante_coll),fmt(d.sante_ind)),
-          LT('Coût global prévoyance',fmt(d.prev_coll),fmt(d.madelin_prev)),
-          LT('Coût retraite obligatoire',fmt(d.ret_coll),fmt(d.cotis_oblig)),
-          LT('Taux de charge appliqué','—',d.taux_charge!==null?(d.taux_charge*100).toFixed(1)+' % ('+d.caisse_ro+')':'—'),
+          LT('Taux de charge appliqué ('+d.caisse_ro+')','—',d.taux_charge!==null?(d.taux_charge*100).toFixed(1)+' %':'—'),
           new TableRow({children:[
             C('COÛT TOTAL RÉEL SOCIÉTÉ',{w:4200,bold:true,bg:BLEU,color:BLANC,bc:BLEU}),
             C(fmt(d.cout_sal_reel),{w:2400,bold:true,bg:BLEU,color:BLANC,align:AlignmentType.RIGHT,bc:BLEU}),
             C(fmt(d.cout_tns_reel),{w:2400,bold:true,bg:BLEU,color:BLANC,align:AlignmentType.RIGHT,bc:BLEU}),
             EmC(638)
           ]}),
-          LT('CHARGES SUPPLÉMENTAIRES (INFO)','','',{bl:true,bg:BLEU_C}),
-          LT('Retraite supplémentaire',d.ret_supp>0?fmt(d.ret_supp):'—',fmt(d.madelin_ret)),
-          LT('Épargne salariale (PEI/PERECO...)',d.autres_epargnes>0?fmt(d.autres_epargnes):'—','—'),
+          LT('COTISATIONS SUPPLÉMENTAIRES ET FACULTATIVES (INFO)','','',{bl:true,bg:BLEU_C}),
+          LT('Retraite supplémentaire (Art. 83 / PEROB)',(d.ret_supp||0)>0?fmt(d.ret_supp):'—',fmt(d.madelin_ret)),
+          LT('Épargne salariale PEI',(d.pei||0)>0?fmt(d.pei):'—','—'),
+          LT('Épargne retraite PERECO',(d.pereco||0)>0?fmt(d.pereco):'—','—'),
         ]}),
         new Paragraph({spacing:{before:80},children:[new TextRun({text:'',font:'Arial'})]}),
         N('Source données salarié : export Silae Expert. Cotisations TNS calculées via la table de référence cabinet (taux de charge par tranche de rémunération et par caisse).'),
@@ -901,6 +977,7 @@ document.querySelectorAll('input,select').forEach(el=>{
   if(el.type!=='file') el.addEventListener('input', compute);
   if(el.tagName==='SELECT') el.addEventListener('change', compute);
 });
+document.getElementById('nb_mois').addEventListener('change', refreshImport);
 renderTableRO();
 compute();
 </script>
