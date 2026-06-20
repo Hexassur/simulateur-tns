@@ -331,10 +331,7 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
 
   <!-- RÉSULTATS -->
   <div class="card">
-    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
-      <span>⚖ Optimisation Rémunération / PER</span>
-      <button type="button" id="btn_reset_optim" title="Revenir à la position d'ouverture (rémunération = net salarié, PER = 0 €)" style="height:30px;padding:0 12px;border:1px solid #CBD5E0;border-radius:6px;background:#fff;color:#082C38;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px">↺ Réinitialiser</button>
-    </div>
+    <div class="card-title">⚖ Optimisation Rémunération / PER</div>
 
     <div id="rubric-optim" class="rubric-panel active">
       <div class="rubric-intro">Budget total fixe = coût société actuel du salarié. Les 3 curseurs ci-dessous sont interconnectés : ajuster l'un recalcule les autres en temps réel (charges, plafond PER, écart au budget). La rémunération ne peut pas descendre sous le net salarié actuel.</div>
@@ -343,9 +340,12 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
 
       <div class="slider-block">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <label for="slider_optim_pct" style="font-size:12px;font-weight:600;color:#444">Optimisation Rémunération &amp; PER</label>
           <div style="display:flex;align-items:center;gap:6px">
-            <button type="button" id="btn_fav_pct" title="Revenir au point d'équilibre (100 %)" style="height:28px;width:120px;padding:0 8px;border:1px solid #CBD5E0;border-radius:6px;background:#fff;color:#082C38;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center">⭐ OPTI MAX 100 %</button>
+            <button type="button" id="btn_reset_optim" title="Revenir à la position d'ouverture (rémunération = net salarié, PER = 0 €)" style="height:28px;width:110px;padding:0 8px;border:1px solid #CBD5E0;border-radius:6px;background:#fff;color:#082C38;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center">⭐ OPTI Zéro</button>
+            <label for="slider_optim_pct" style="font-size:12px;font-weight:600;color:#444">Optimisation Rémunération &amp; PER</label>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button type="button" id="btn_fav_pct" title="Revenir au point d'équilibre (100 %)" style="height:28px;width:110px;padding:0 8px;border:1px solid #CBD5E0;border-radius:6px;background:#fff;color:#082C38;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center">⭐ OPTI MIX</button>
             <input type="number" id="input_optim_pct" step="0.1" style="width:80px;height:28px;padding:0 6px;border:1px solid #CBD5E0;border-radius:6px;font-size:13px;text-align:right">
             <span style="font-size:12px;color:#888">%</span>
           </div>
@@ -360,9 +360,12 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
 
       <div class="slider-block">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <label for="slider_optim_remu" style="font-size:12px;font-weight:600;color:#444">Maximisation Rémunération (€/an)</label>
           <div style="display:flex;align-items:center;gap:6px">
-            <button type="button" id="btn_fav_remu" title="Rémunération maximale sans dépasser le budget (PER à 0 €)" style="height:28px;width:120px;padding:0 8px;border:1px solid #CBD5E0;border-radius:6px;background:#fff;color:#082C38;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center">⭐ REM MAX</button>
+            <button type="button" id="btn_min_remu" title="Rémunération minimale (net salarié actuel)" style="height:28px;width:110px;padding:0 8px;border:1px solid #CBD5E0;border-radius:6px;background:#fff;color:#082C38;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center">⭐ REM min</button>
+            <label for="slider_optim_remu" style="font-size:12px;font-weight:600;color:#444">Maximisation Rémunération (€/an)</label>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button type="button" id="btn_fav_remu" title="Rémunération maximale sans dépasser le budget (PER à 0 €)" style="height:28px;width:110px;padding:0 8px;border:1px solid #CBD5E0;border-radius:6px;background:#fff;color:#082C38;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center">⭐ OPTI REM</button>
             <input type="number" id="input_optim_remu" step="100" style="width:100px;height:28px;padding:0 6px;border:1px solid #CBD5E0;border-radius:6px;font-size:13px;text-align:right">
             <span style="font-size:12px;color:#888">€</span>
           </div>
@@ -377,9 +380,12 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
 
       <div class="slider-block">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <label for="slider_optim_per" style="font-size:12px;font-weight:600;color:#444">Maximisation PER (€/an)</label>
           <div style="display:flex;align-items:center;gap:6px">
-            <button type="button" id="btn_fav_per" data-state="max" title="Basculer entre PER au plafond max et PER à 0 €" style="height:28px;width:120px;padding:0 8px;border:1px solid #CBD5E0;border-radius:6px;background:#fff;color:#082C38;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center">⭐ PER MAX</button>
+            <button type="button" id="btn_min_per" title="PER à 0 €" style="height:28px;width:110px;padding:0 8px;border:1px solid #CBD5E0;border-radius:6px;background:#fff;color:#082C38;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center">⭐ PER min</button>
+            <label for="slider_optim_per" style="font-size:12px;font-weight:600;color:#444">Maximisation PER (€/an)</label>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button type="button" id="btn_fav_per" title="PER au plafond maximum déductible" style="height:28px;width:110px;padding:0 8px;border:1px solid #CBD5E0;border-radius:6px;background:#fff;color:#082C38;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center">⭐ OPTI PER</button>
             <input type="number" id="input_optim_per" step="50" style="width:100px;height:28px;padding:0 6px;border:1px solid #CBD5E0;border-radius:6px;font-size:13px;text-align:right">
             <span style="font-size:12px;color:#888">€</span>
           </div>
@@ -953,39 +959,42 @@ function renderRubricOptim(d){
       window._lastTouched = 'remu'; window._lastValue = Math.min(window._remuMaxBudget(), parseFloat(elRemu.max));
       compute();
     });
+    document.getElementById('btn_min_remu').addEventListener('click', function(){
+      // Rémunération minimale = le plancher (net salarié actuel), recalculé à l'instant du clic.
+      window._lastTouched = 'remu'; window._lastValue = parseFloat(elRemu.min);
+      compute();
+    });
     document.getElementById('btn_fav_per').addEventListener('click', function(){
-      // Bascule à chaque clic vers l'état opposé : depuis "max" → min, depuis "min" ou "mid" → max.
-      // Le texte/état réel est de toute façon resynchronisé après compute() selon la valeur effective.
-      const nextState = this.dataset.state === 'max' ? 'min' : 'max';
-      if(nextState === 'min'){
-        window._lastTouched = 'per'; window._lastValue = 0;
-      } else {
-        // Contexte recalculé à l'instant du clic (pas de valeurs figées dans la closure).
-        const ctx = window._optimContext();
-        let perCible = plafonds(parseFloat(elRemu.value) || 0).ret_max;
-        for(let i=0;i<25;i++){
-          function coutPourRemu(remu){
-            const c = chargesGerance(remu, ctx.sante_ind, ctx.madelin_prev, perCible, ctx.caisse_ro);
-            return remu + c.charges + ctx.sante_ind + ctx.madelin_prev + perCible;
-          }
-          let remuResult;
-          if(coutPourRemu(ctx.remuMin) <= ctx.budgetCible){
-            if(coutPourRemu(ctx.remuMax) <= ctx.budgetCible){
-              remuResult = ctx.remuMax;
-            } else {
-              let loR=ctx.remuMin, hiR=ctx.remuMax;
-              for(let j=0;j<50;j++){ const mid=(loR+hiR)/2; if(coutPourRemu(mid)<ctx.budgetCible) loR=mid; else hiR=mid; }
-              remuResult = (loR+hiR)/2;
-            }
-          } else {
-            remuResult = ctx.remuMin;
-          }
-          const nouveauPlafond = plafonds(remuResult).ret_max;
-          if(Math.abs(nouveauPlafond - perCible) < 1) { perCible = nouveauPlafond; break; }
-          perCible = nouveauPlafond;
+      // Pousse toujours le PER vers son plafond max convergé (le retour à 0 € se fait via le
+      // bouton "PER min" séparé, donc plus besoin de bascule ici).
+      // Le plafond PER dépend de la rémunération, qui elle-même se réajuste pour absorber ce PER
+      // sans dépasser le budget (dépendance circulaire) : on itère jusqu'à convergence plutôt que
+      // de viser le plafond calculé sur la rémunération affichée avant le clic (qui devient obsolète
+      // dès que la rémunération bouge en conséquence).
+      const ctx = window._optimContext();
+      let perCible = plafonds(parseFloat(elRemu.value) || 0).ret_max;
+      for(let i=0;i<25;i++){
+        function coutPourRemu(remu){
+          const c = chargesGerance(remu, ctx.sante_ind, ctx.madelin_prev, perCible, ctx.caisse_ro);
+          return remu + c.charges + ctx.sante_ind + ctx.madelin_prev + perCible;
         }
-        window._lastTouched = 'per'; window._lastValue = perCible;
+        let remuResult;
+        if(coutPourRemu(ctx.remuMin) <= ctx.budgetCible){
+          if(coutPourRemu(ctx.remuMax) <= ctx.budgetCible){
+            remuResult = ctx.remuMax;
+          } else {
+            let loR=ctx.remuMin, hiR=ctx.remuMax;
+            for(let j=0;j<50;j++){ const mid=(loR+hiR)/2; if(coutPourRemu(mid)<ctx.budgetCible) loR=mid; else hiR=mid; }
+            remuResult = (loR+hiR)/2;
+          }
+        } else {
+          remuResult = ctx.remuMin;
+        }
+        const nouveauPlafond = plafonds(remuResult).ret_max;
+        if(Math.abs(nouveauPlafond - perCible) < 1) { perCible = nouveauPlafond; break; }
+        perCible = nouveauPlafond;
       }
+      window._lastTouched = 'per'; window._lastValue = perCible;
       compute();
     });
 
@@ -993,6 +1002,11 @@ function renderRubricOptim(d){
     // (rémunération = net salarié actuel, PER = 0 €) en réinitialisant _lastTouched.
     document.getElementById('btn_reset_optim').addEventListener('click', function(){
       window._lastTouched = null;
+      compute();
+    });
+    document.getElementById('btn_min_per').addEventListener('click', function(){
+      // PER minimal = 0 €.
+      window._lastTouched = 'per'; window._lastValue = 0;
       compute();
     });
   }
@@ -1119,22 +1133,6 @@ function renderRubricOptim(d){
   document.getElementById('optim_per_label').textContent = fmt(perCourant);
   document.getElementById('optim_per_max_label').textContent = fmt(perMaxCourant) + ' (plafond max)';
 
-  // Texte du bouton PER à 3 états, reflétant la position réelle du curseur (pas seulement le
-  // dernier clic) : "PER MIN" si à 0 €, "PER MAX" si au plafond max, "PER" si entre les deux
-  // (déplacement manuel du curseur/champ à une valeur intermédiaire).
-  (function syncBtnPerLabel(){
-    const btn = document.getElementById('btn_fav_per');
-    if(!btn) return;
-    const tol = Math.max(1, perMaxCourant*0.005); // tolérance pour les arrondis d'affichage
-    if(perCourant <= tol){
-      btn.textContent = '⭐ PER MIN'; btn.dataset.state = 'min';
-    } else if(perMaxCourant - perCourant <= tol){
-      btn.textContent = '⭐ PER MAX'; btn.dataset.state = 'max';
-    } else {
-      btn.textContent = '⭐ PER'; btn.dataset.state = 'mid';
-    }
-  })();
-
   // ── Calcul final des charges (base élargie réintégrant Santé + Prévoyance + PER courant)
   // et du coût total pour la rémunération + PER courants
   const { charges: chargesFinal, taux: tauxFinal, base: baseFinal } = chargesGerance(remuCourante, sante_ind, madelin_prev, perCourant, caisse_ro);
@@ -1168,6 +1166,7 @@ function renderRubricOptim(d){
       <div class="cline sh"><span class="cn">Dont dispositifs d'épargnes</span><span class="cv"></span></div>
       <div class="cline si"><span class="cn">Épargne salariale PEI (participation, intéressement...)</span><span class="cv">—</span></div>
       <div class="cline si"><span class="cn">Épargne retraite PERECO (retraite collective)</span><span class="cv">—</span></div>
+      <div class="cline si"><span class="cn">Retraite supplémentaire (Art. 83 / PEROB)</span><span class="cv">—</span></div>
       <div class="cline si" style="font-style:italic;color:#AAA;font-size:11px"><span class="cn">Les TNS peuvent accéder aux dispositifs d'épargne salariale s'ils sont mis en place pour les salariés.</span><span class="cv"></span></div>
     </div>`;
 
