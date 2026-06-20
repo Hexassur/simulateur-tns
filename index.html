@@ -310,7 +310,8 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
       <div class="slider-block">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
           <label for="slider_optim_pct" style="font-size:12px;font-weight:600;color:#444">Curseur Optimisation (% du point d'équilibre TNS)</label>
-          <div style="display:flex;align-items:center;gap:4px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <button type="button" id="btn_fav_pct" title="Revenir au point d'équilibre (100 %)" style="height:28px;padding:0 8px;border:1px solid #CBD5E0;border-radius:6px;background:#fff;color:#082C38;font-size:12px;cursor:pointer">⭐ 100 %</button>
             <input type="number" id="input_optim_pct" step="0.1" style="width:80px;height:28px;padding:0 6px;border:1px solid #CBD5E0;border-radius:6px;font-size:13px;text-align:right">
             <span style="font-size:12px;color:#888">%</span>
           </div>
@@ -326,7 +327,8 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
       <div class="slider-block">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
           <label for="slider_optim_remu" style="font-size:12px;font-weight:600;color:#444">Curseur Rémunération de gérance (€/an)</label>
-          <div style="display:flex;align-items:center;gap:4px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <button type="button" id="btn_fav_remu" title="Rémunération maximale sans dépasser le budget (PER à 0 €)" style="height:28px;padding:0 8px;border:1px solid #CBD5E0;border-radius:6px;background:#fff;color:#082C38;font-size:12px;cursor:pointer">⭐ Max budget</button>
             <input type="number" id="input_optim_remu" step="100" style="width:100px;height:28px;padding:0 6px;border:1px solid #CBD5E0;border-radius:6px;font-size:13px;text-align:right">
             <span style="font-size:12px;color:#888">€</span>
           </div>
@@ -342,7 +344,8 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
       <div class="slider-block">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
           <label for="slider_optim_per" style="font-size:12px;font-weight:600;color:#444">Curseur PER Madelin (€/an) — plafond recalculé selon la rémunération ci-dessus</label>
-          <div style="display:flex;align-items:center;gap:4px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <button type="button" id="btn_fav_per" title="Mettre le PER au plafond max" style="height:28px;padding:0 8px;border:1px solid #CBD5E0;border-radius:6px;background:#fff;color:#082C38;font-size:12px;cursor:pointer">⭐ Plafond max</button>
             <input type="number" id="input_optim_per" step="50" style="width:100px;height:28px;padding:0 6px;border:1px solid #CBD5E0;border-radius:6px;font-size:13px;text-align:right">
             <span style="font-size:12px;color:#888">€</span>
           </div>
@@ -815,6 +818,25 @@ function renderRubricOptim(d){
   let remuOpt = (lo+hi)/2;
   if(remuOpt < netSalRef) remuOpt = netSalRef; // garde-fou : le point d'équilibre ne peut pas être sous le net salarié
 
+  // ── Point de bascule budgétaire SANS PER — rémunération maximale telle que
+  // remu + charges_oblig(remu) + santé + prévoyance = budgetCible (PER non compté).
+  // Utilisé par le bouton favori "Rémunération Max" : au-delà de ce point, même un PER à 0 €
+  // ne suffit plus à éviter le dépassement de budget.
+  function coutSansPerPour(remu){
+    const cotage = remu * (tauxRO(remu, caisse_ro) ?? 0.45);
+    return remu + cotage + sante_ind + madelin_prev;
+  }
+  let loB = 0, hiB = Math.max(budgetCible, netSalRef*1.5, 1);
+  for(let i=0;i<60;i++){
+    const mid = (loB+hiB)/2;
+    if(coutSansPerPour(mid) < budgetCible) loB = mid; else hiB = mid;
+  }
+  let remuMaxBudget = (loB+hiB)/2;
+  if(remuMaxBudget < netSalRef) remuMaxBudget = netSalRef;
+  // Exposé pour le bouton favori "Max budget" : recalculé à chaque rendu pour éviter de capturer
+  // une valeur figée dans la closure du listener (cf. bug où la valeur restait celle du tout premier rendu).
+  window._remuMaxBudget = function(){ return remuMaxBudget; };
+
   // ── Bornes du système : plancher = net salarié actuel, plafond = 150% du point d'équilibre
   const pctMin = remuOpt>0 ? (netSalRef/remuOpt*100) : 0;
   const pctMax = 150;
@@ -859,6 +881,24 @@ function renderRubricOptim(d){
       window._lastTouched = 'per'; window._lastValue = parseFloat(this.value) || 0;
       compute();
     });
+
+    // ── Boutons favoris : repositionnent un seul curseur, le reste suit la cascade habituelle
+    document.getElementById('btn_fav_pct').addEventListener('click', function(){
+      window._lastTouched = 'pct'; window._lastValue = 100;
+      compute();
+    });
+    document.getElementById('btn_fav_remu').addEventListener('click', function(){
+      // Recalcul à l'instant du clic (pas de valeur figée à l'initialisation) : la situation
+      // (net salarié, budget société, charges Madelin...) peut avoir changé depuis le premier rendu.
+      window._lastTouched = 'remu'; window._lastValue = Math.min(window._remuMaxBudget(), parseFloat(elRemu.max));
+      compute();
+    });
+    document.getElementById('btn_fav_per').addEventListener('click', function(){
+      // Plafond recalculé sur la rémunération affichée à l'instant du clic (pas figé à l'init)
+      const remuActuelle = parseFloat(elRemu.value) || 0;
+      window._lastTouched = 'per'; window._lastValue = plafonds(remuActuelle).ret_max;
+      compute();
+    });
   }
 
   // ── Détermine la rémunération courante selon le dernier curseur/champ manipulé
@@ -894,9 +934,16 @@ function renderRubricOptim(d){
   elPer.max = Math.round(perMaxCourant);
   inPer.max = Math.round(perMaxCourant);
 
+  // Charges obligatoires sur la rémunération courante (formule inchangée), calculées ici
+  // car nécessaires pour la contrainte budgétaire du PER ci-dessous.
+  const cot = remuCourante * (tauxRO(remuCourante, caisse_ro) ?? 0.45);
+  const coutSansPer = remuCourante + cot + sante_ind + madelin_prev;
+
   // PER : démarre à 0 € au tout premier chargement (rémunération = net salarié actuel).
   // Ensuite, il suit automatiquement le plafond max chaque fois que ce n'est pas lui qui vient
-  // d'être manipulé (Optimisation/Rémunération priment et recalent le PER au max disponible).
+  // d'être manipulé (Optimisation/Rémunération priment) — SAUF si ce plafond max ferait dépasser
+  // le budget total : dans ce cas, le PER est réduit juste assez pour ne pas dépasser le budget
+  // (sans descendre sous 0), pour laisser la priorité à l'augmentation de la rémunération.
   // Si l'utilisateur vient de toucher le curseur/champ PER lui-même, sa valeur choisie est conservée
   // (simplement clampée au nouveau plafond, qui ne peut pas changer dans ce cas précis).
   let perCourant;
@@ -905,15 +952,15 @@ function renderRubricOptim(d){
   } else if(window._lastTouched === 'per'){
     perCourant = Math.max(0, Math.min(window._lastValue || 0, perMaxCourant));
   } else {
-    perCourant = perMaxCourant;
+    const perSansDepassement = budgetCible - coutSansPer;
+    perCourant = Math.max(0, Math.min(perMaxCourant, perSansDepassement));
   }
   elPer.value = Math.round(perCourant); inPer.value = Math.round(perCourant);
   document.getElementById('optim_per_label').textContent = fmt(perCourant);
   document.getElementById('optim_per_max_label').textContent = fmt(perMaxCourant) + ' (plafond max)';
 
-  // ── Calcul final des charges et du coût total pour la rémunération + PER courants
-  const cot = remuCourante * (tauxRO(remuCourante, caisse_ro) ?? 0.45);
-  const cout_total = remuCourante + cot + sante_ind + madelin_prev + perCourant;
+  // ── Calcul final du coût total pour la rémunération + PER courants
+  const cout_total = coutSansPer + perCourant;
   const ecart = budgetCible - cout_total;
   const ecartColor = Math.abs(ecart) < 50 ? '#1E6E3E' : (ecart > 0 ? '#1E6E3E' : '#8B1A1A');
 
