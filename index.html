@@ -852,32 +852,6 @@ window._lastTouched = null;
 function renderRubricOptim(d){
   const { net_sal, cout_sal_reel, ret_supp, pei, pereco, caisse_ro, sante_ind, madelin_prev } = d;
 
-  // Tant qu'aucun import Silae n'a été effectué (net_sal === null), les blocs Situation actuelle
-  // et Projection TNS restent vierges : on ne calcule/affiche rien sur la base de valeurs par
-  // défaut arbitraires qui n'ont pas de sens tant que la vraie rémunération salariale n'est pas connue.
-  if(net_sal === null){
-    document.getElementById('metrics-optim').innerHTML = '';
-    document.getElementById('verdict-optim').innerHTML = '';
-    document.getElementById('rubric-optim-cards').innerHTML = `
-      <div class="ccard"><div class="ccard-head">Situation actuelle — Dirigeant salarié</div>
-        <div style="padding:24px;text-align:center;color:#999;font-size:13px">Importez un fichier Silae pour afficher la situation actuelle.</div></div>
-      <div class="ccard"><div class="ccard-head tns">Projection TNS — optimisation rémunération / PER</div>
-        <div style="padding:24px;text-align:center;color:#999;font-size:13px">Importez un fichier Silae pour afficher la projection TNS.</div></div>`;
-    document.getElementById('rubric-optim-note').textContent = '';
-    ['slider_optim_pct','slider_optim_remu','slider_optim_per','input_optim_pct','input_optim_remu','input_optim_per',
-     'btn_fav_pct','btn_fav_remu','btn_fav_per','btn_reset_optim'].forEach(id=>{
-      const el = document.getElementById(id);
-      if(el) el.disabled = true;
-    });
-    return;
-  }
-  // Ré-activer les contrôles dès qu'un import est disponible (au cas où ils auraient été désactivés)
-  ['slider_optim_pct','slider_optim_remu','slider_optim_per','input_optim_pct','input_optim_remu','input_optim_per',
-   'btn_fav_pct','btn_fav_remu','btn_fav_per','btn_reset_optim'].forEach(id=>{
-    const el = document.getElementById(id);
-    if(el) el.disabled = false;
-  });
-
   const budgetCible = cout_sal_reel;
   const netSalRef = net_sal !== null ? net_sal : 0;
 
