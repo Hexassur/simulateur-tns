@@ -1282,6 +1282,10 @@ function resetForm(){
   document.getElementById('nb_mois').value = '12';
   document.getElementById('nb_mois_info').textContent = '';
   document.getElementById('import-result').innerHTML='';
+  // Vider la valeur du champ file : sans ça, le navigateur ne redéclenche pas l'événement 'change'
+  // si l'utilisateur sélectionne à nouveau EXACTEMENT le même fichier après un reset — ce qui donnait
+  // l'impression que l'import était cassé (il fallait recharger la page pour pouvoir réimporter).
+  document.getElementById('file-input').value = '';
   _silaeRaw = null;
   compute();
 }
