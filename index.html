@@ -228,14 +228,14 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
     <div class="card-title">👤 Situation actuelle — Dirigeant salarié</div>
     <div class="grid3">
       <div class="field"><label>Nom du dirigeant</label><input type="text" id="nom" placeholder="Nom Prénom"></div>
-      <div class="field"><label>Salaire brut annuel (€)</label><input type="number" id="brut" value="60168" step="100"></div>
-      <div class="field"><label>Coût total société — social (€)</label><input type="number" id="cout_total" value="87819" step="100"></div>
+      <div class="field"><label>Salaire brut annuel (€)</label><input type="number" id="brut" value="" placeholder="à saisir" step="100"></div>
+      <div class="field"><label>Coût total société — social (€)</label><input type="number" id="cout_total" value="" placeholder="à saisir" step="100"></div>
     </div>
     <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.05em;margin:8px 0 6px">Cotisations supplémentaires et facultatives</div>
     <div class="grid3">
-      <div class="field"><label>Retraite Supp — Art. 83 / PEROB (€/an)</label><input type="number" id="ret_supp" value="0" step="100"></div>
-      <div class="field"><label>Épargne salariale PEI (€/an)</label><input type="number" id="pei" value="0" step="100"></div>
-      <div class="field"><label>Épargne retraite PERECO (€/an)</label><input type="number" id="pereco" value="0" step="100"></div>
+      <div class="field"><label>Retraite Supp — Art. 83 / PEROB (€/an)</label><input type="number" id="ret_supp" value="" placeholder="à saisir" step="100"></div>
+      <div class="field"><label>Épargne salariale PEI (€/an)</label><input type="number" id="pei" value="" placeholder="à saisir" step="100"></div>
+      <div class="field"><label>Épargne retraite PERECO (€/an)</label><input type="number" id="pereco" value="" placeholder="à saisir" step="100"></div>
     </div>
     <div class="grid3">
       <div class="field"><label>Salaire net annuel avant IR (Silae)</label><input type="text" id="net_sal_display" readonly style="background:#F0F4F7;font-weight:700;color:#082C38" placeholder="— Import Silae requis"></div>
@@ -263,7 +263,7 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
           <option value="MSA">MSA</option>
         </select>
       </div>
-      <div class="field"><label>Rémunération de gérance prévisionnelle (€/an)</label><input type="number" id="remu_gerance" value="42000" step="500"></div>
+      <div class="field"><label>Rémunération de gérance prévisionnelle (€/an)</label><input type="number" id="remu_gerance" value="" placeholder="à saisir" step="500"></div>
     </div>
     <div class="grid3">
       <div class="field">
@@ -343,7 +343,7 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
 
       <div class="slider-block">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <label for="slider_optim_pct" style="font-size:12px;font-weight:600;color:#444">Optimisation Rémunération &amp; PER (% du point d'équilibre TNS)</label>
+          <label for="slider_optim_pct" style="font-size:12px;font-weight:600;color:#444">Optimisation Rémunération &amp; PER</label>
           <div style="display:flex;align-items:center;gap:6px">
             <button type="button" id="btn_fav_pct" title="Revenir au point d'équilibre (100 %)" style="height:28px;width:120px;padding:0 8px;border:1px solid #CBD5E0;border-radius:6px;background:#fff;color:#082C38;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center">⭐ OPTI MAX 100 %</button>
             <input type="number" id="input_optim_pct" step="0.1" style="width:80px;height:28px;padding:0 6px;border:1px solid #CBD5E0;border-radius:6px;font-size:13px;text-align:right">
@@ -377,7 +377,7 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
 
       <div class="slider-block">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <label for="slider_optim_per" style="font-size:12px;font-weight:600;color:#444">Maximisation PER (€/an) — plafond recalculé selon la rémunération ci-dessus</label>
+          <label for="slider_optim_per" style="font-size:12px;font-weight:600;color:#444">Maximisation PER (€/an)</label>
           <div style="display:flex;align-items:center;gap:6px">
             <button type="button" id="btn_fav_per" data-state="max" title="Basculer entre PER au plafond max et PER à 0 €" style="height:28px;width:120px;padding:0 8px;border:1px solid #CBD5E0;border-radius:6px;background:#fff;color:#082C38;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center">⭐ PER MAX</button>
             <input type="number" id="input_optim_per" step="50" style="width:100px;height:28px;padding:0 6px;border:1px solid #CBD5E0;border-radius:6px;font-size:13px;text-align:right">
@@ -811,7 +811,7 @@ function compute(){
     const vEl = document.getElementById(verdictId);
     vEl.className = 'verdict ' + (av>=0?'ok':'ko');
     vEl.innerHTML = `
-      <div class="vt">${av>=0?'✅ Le statut TNS est plus avantageux sur la base des hypothèses de travail retenues':'⚠️ Le statut salarié reste moins coûteux'}</div>
+      <div class="vt">${av>=0?'✅ Le statut TNS est plus avantageux sur la base des hypothèses de travail retenues':'⚠️ Le statut salarié reste moins coûteux sur la base des hypothèses de travail retenues'}</div>
       <div class="vs">${av>=0
         ? `Économie annuelle de <strong>${fmt(av)}</strong> avec le statut TNS (contrats individuels inclus) à rémunération constante.`
         : `Surcoût de <strong>${fmt(-av)}</strong> avec le statut TNS à rémunération constante.`}
@@ -851,6 +851,33 @@ window._lastTouched = null;
 
 function renderRubricOptim(d){
   const { net_sal, cout_sal_reel, ret_supp, pei, pereco, caisse_ro, sante_ind, madelin_prev } = d;
+
+  // Tant qu'aucun import Silae n'a été effectué (net_sal === null), les blocs Situation actuelle
+  // et Projection TNS restent vierges : on ne calcule/affiche rien sur la base de valeurs par
+  // défaut arbitraires qui n'ont pas de sens tant que la vraie rémunération salariale n'est pas connue.
+  if(net_sal === null){
+    document.getElementById('metrics-optim').innerHTML = '';
+    document.getElementById('verdict-optim').innerHTML = '';
+    document.getElementById('rubric-optim-cards').innerHTML = `
+      <div class="ccard"><div class="ccard-head">Situation actuelle — Dirigeant salarié</div>
+        <div style="padding:24px;text-align:center;color:#999;font-size:13px">Importez un fichier Silae pour afficher la situation actuelle.</div></div>
+      <div class="ccard"><div class="ccard-head tns">Projection TNS — optimisation rémunération / PER</div>
+        <div style="padding:24px;text-align:center;color:#999;font-size:13px">Importez un fichier Silae pour afficher la projection TNS.</div></div>`;
+    document.getElementById('rubric-optim-note').textContent = '';
+    ['slider_optim_pct','slider_optim_remu','slider_optim_per','input_optim_pct','input_optim_remu','input_optim_per',
+     'btn_fav_pct','btn_fav_remu','btn_fav_per','btn_reset_optim'].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el) el.disabled = true;
+    });
+    return;
+  }
+  // Ré-activer les contrôles dès qu'un import est disponible (au cas où ils auraient été désactivés)
+  ['slider_optim_pct','slider_optim_remu','slider_optim_per','input_optim_pct','input_optim_remu','input_optim_per',
+   'btn_fav_pct','btn_fav_remu','btn_fav_per','btn_reset_optim'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.disabled = false;
+  });
+
   const budgetCible = cout_sal_reel;
   const netSalRef = net_sal !== null ? net_sal : 0;
 
@@ -897,6 +924,10 @@ function renderRubricOptim(d){
   const pctMax = 150;
   const remuMin = netSalRef;
   const remuMax = remuOpt * (pctMax/100);
+
+  // Exposé pour le bouton favori "PER MAX" : recalculé à chaque rendu pour éviter de capturer
+  // des valeurs figées dans la closure du listener (cf. bug remuMaxBudget déjà rencontré).
+  window._optimContext = function(){ return { budgetCible, remuMin, remuMax, caisse_ro, sante_ind, madelin_prev }; };
 
   const elPct  = document.getElementById('slider_optim_pct');
   const elRemu = document.getElementById('slider_optim_remu');
@@ -949,17 +980,37 @@ function renderRubricOptim(d){
       compute();
     });
     document.getElementById('btn_fav_per').addEventListener('click', function(){
-      // Bascule à chaque clic entre PER au plafond max et PER à 0 € (PER MIN).
+      // Bascule à chaque clic vers l'état opposé : depuis "max" → min, depuis "min" ou "mid" → max.
+      // Le texte/état réel est de toute façon resynchronisé après compute() selon la valeur effective.
       const nextState = this.dataset.state === 'max' ? 'min' : 'max';
-      this.dataset.state = nextState;
       if(nextState === 'min'){
-        this.textContent = '⭐ PER MIN';
         window._lastTouched = 'per'; window._lastValue = 0;
       } else {
-        this.textContent = '⭐ PER MAX';
-        // Plafond recalculé sur la rémunération affichée à l'instant du clic (pas figé à l'init)
-        const remuActuelle = parseFloat(elRemu.value) || 0;
-        window._lastTouched = 'per'; window._lastValue = plafonds(remuActuelle).ret_max;
+        // Contexte recalculé à l'instant du clic (pas de valeurs figées dans la closure).
+        const ctx = window._optimContext();
+        let perCible = plafonds(parseFloat(elRemu.value) || 0).ret_max;
+        for(let i=0;i<25;i++){
+          function coutPourRemu(remu){
+            const c = chargesGerance(remu, ctx.sante_ind, ctx.madelin_prev, perCible, ctx.caisse_ro);
+            return remu + c.charges + ctx.sante_ind + ctx.madelin_prev + perCible;
+          }
+          let remuResult;
+          if(coutPourRemu(ctx.remuMin) <= ctx.budgetCible){
+            if(coutPourRemu(ctx.remuMax) <= ctx.budgetCible){
+              remuResult = ctx.remuMax;
+            } else {
+              let loR=ctx.remuMin, hiR=ctx.remuMax;
+              for(let j=0;j<50;j++){ const mid=(loR+hiR)/2; if(coutPourRemu(mid)<ctx.budgetCible) loR=mid; else hiR=mid; }
+              remuResult = (loR+hiR)/2;
+            }
+          } else {
+            remuResult = ctx.remuMin;
+          }
+          const nouveauPlafond = plafonds(remuResult).ret_max;
+          if(Math.abs(nouveauPlafond - perCible) < 1) { perCible = nouveauPlafond; break; }
+          perCible = nouveauPlafond;
+        }
+        window._lastTouched = 'per'; window._lastValue = perCible;
       }
       compute();
     });
@@ -1094,6 +1145,22 @@ function renderRubricOptim(d){
   document.getElementById('optim_per_label').textContent = fmt(perCourant);
   document.getElementById('optim_per_max_label').textContent = fmt(perMaxCourant) + ' (plafond max)';
 
+  // Texte du bouton PER à 3 états, reflétant la position réelle du curseur (pas seulement le
+  // dernier clic) : "PER MIN" si à 0 €, "PER MAX" si au plafond max, "PER" si entre les deux
+  // (déplacement manuel du curseur/champ à une valeur intermédiaire).
+  (function syncBtnPerLabel(){
+    const btn = document.getElementById('btn_fav_per');
+    if(!btn) return;
+    const tol = Math.max(1, perMaxCourant*0.005); // tolérance pour les arrondis d'affichage
+    if(perCourant <= tol){
+      btn.textContent = '⭐ PER MIN'; btn.dataset.state = 'min';
+    } else if(perMaxCourant - perCourant <= tol){
+      btn.textContent = '⭐ PER MAX'; btn.dataset.state = 'max';
+    } else {
+      btn.textContent = '⭐ PER'; btn.dataset.state = 'mid';
+    }
+  })();
+
   // ── Calcul final des charges (base élargie réintégrant Santé + Prévoyance + PER courant)
   // et du coût total pour la rémunération + PER courants
   const { charges: chargesFinal, taux: tauxFinal, base: baseFinal } = chargesGerance(remuCourante, sante_ind, madelin_prev, perCourant, caisse_ro);
@@ -1118,7 +1185,7 @@ function renderRubricOptim(d){
     <div class="ccard active">
       <div class="ccard-head tns">Projection TNS — optimisation rémunération / PER<div style="font-size:11px;font-weight:400;opacity:.85;margin-top:2px">Rémunération Mensuelle : ${Math.round(remuCourante/12).toLocaleString('fr-FR')} € / mois</div></div>
       <div class="cline"><span class="cn">Rémunération gérance avant impôt</span><span class="cv">${fmt(remuCourante)}</span></div>
-      <div class="cline"><span class="cn">Charges totales gérance (y compris retraite oblig. ${caisse_ro}, taux ${(tauxFinal*100).toFixed(1)}% sur base élargie)</span><span class="cv">${fmt(chargesFinal)}</span></div>
+      <div class="cline"><span class="cn">Charges totales gérance (y compris retraite oblig. ${caisse_ro}, taux ${(tauxFinal*100).toFixed(1)}%)</span><span class="cv">${fmt(chargesFinal)}</span></div>
       <div class="cline si"><span class="cn">Coût Santé (Madelin)</span><span class="cv">${fmt(sante_ind)}</span></div>
       <div class="cline si"><span class="cn">Coût Prévoyance (Madelin)</span><span class="cv">${fmt(madelin_prev)}</span></div>
       <div class="cline si"><span class="cn">Coût Plan Épargne Retraite - PER (Madelin)</span><span class="cv">${fmt(perCourant)}</span></div>
