@@ -1399,7 +1399,8 @@ function calculerPositionsOptim(d){
     const diff_net = net_sal !== null ? remu - net_sal : null;
     const diff_cout = cout_total - cout_sal_reel;
     const avantage = -diff_cout;
-    return { remu, per, charges:c.charges, taux:c.taux, cout_total, diff_net, diff_cout, avantage };
+    return { remu, per, charges:c.charges, taux:c.taux, cout_total, diff_net, diff_cout, avantage,
+             sante_ind, madelin_prev };
   }
 
   return {
@@ -1464,7 +1465,11 @@ async function generateWord(){
   }
   function TS(t){
     return new Paragraph({spacing:{before:280,after:100},
-      border:{bottom:{style:BorderStyle.SINGLE,size:6,color:BLEU,space:1}},
+      indent:{left:160},
+      border:{
+        bottom:{style:BorderStyle.SINGLE,size:6,color:BLEU,space:1},
+        left:{style:BorderStyle.SINGLE,size:24,color:ROUGE,space:8},
+      },
       children:[new TextRun({text:t,bold:true,size:26,color:BLEU,font:'Century Gothic'})]});
   }
   function P(text,opts={}){
@@ -1472,6 +1477,17 @@ async function generateWord(){
           spacing={before:60,after:60},align=AlignmentType.LEFT}=opts;
     return new Paragraph({alignment:align,spacing,
       children:[new TextRun({text,bold,size,color,font:'Century Gothic',italics:italic})]});
+  }
+  // Paragraphe à styles mixtes : runs = [{text, bold, color, italic, size}], chaque run hérite
+  // des valeurs par défaut sauf override explicite. Utilisé pour mettre en valeur un segment
+  // (ex: le chiffre-clé d'une puce) sans changer le style de toute la phrase.
+  function PMixte(runs,opts={}){
+    const{spacing={before:40,after:40},align=AlignmentType.LEFT,defaultSize=19,defaultColor='333333'}=opts;
+    return new Paragraph({alignment:align,spacing,
+      children:runs.map(r=>new TextRun({
+        text:r.text,bold:r.bold||false,italics:r.italic||false,
+        size:r.size||defaultSize,color:r.color||defaultColor,font:'Century Gothic'
+      }))});
   }
   function N(text){
     return new Paragraph({spacing:{before:40,after:40},
@@ -1490,52 +1506,69 @@ async function generateWord(){
   const d = R;
   const optim4 = calculerPositionsOptim(d);
 
-  // ── Construit un bloc complet pour une position d'optimisation : titre + points clés + tableau
-  // comparatif (2 blocs Situation actuelle / Projection TNS) + bandeau verdict, charte Hexassur.
-  function blocPositionOptim(numero, titreSection, sousTitre, puces, position){
-    const avPositif = position.avantage >= -50;
-    const avAffiche = Math.abs(position.avantage) < 50 ? 0 : position.avantage;
+  // ── Construit un bloc complet pour une position d'optimisation : titre + puces (avec segment
+  // clé en gras coloré) + tableau détaillé Situation actuelle / Projection TNS, reprenant
+  // fidèlement les données et libellés déjà affichés dans la rubrique Optimisation du simulateur
+  // HTML (cf. renderRubricOptim), charte graphique Hexassur.
+  function blocPositionOptim(numero, titreSection, puces, position){
     const elements = [
       TS(`${numero}. ${titreSection}`),
-      P(sousTitre,{bold:true,size:20,color:BLEU,spacing:{before:60,after:160}}),
+      new Paragraph({spacing:{before:60},children:[new TextRun({text:'',font:'Century Gothic'})]}),
     ];
-    puces.forEach(txt => elements.push(P('• '+txt,{size:19,color:'333333',spacing:{before:40,after:40}})));
+    // Chaque puce est soit une chaîne simple, soit un tableau de segments où chaque élément est
+    // une chaîne brute (texte neutre) ou un objet {text,bold,color} (texte mis en valeur).
+    puces.forEach(p => {
+      const segments = (Array.isArray(p) ? p : [p]).map(s => typeof s === 'string' ? {text:s} : s);
+      const runs = [{text:'→ ',bold:false,color:BLEU}, ...segments];
+      elements.push(PMixte(runs,{spacing:{before:50,after:50},defaultSize:19,defaultColor:'333333'}));
+    });
     elements.push(new Paragraph({spacing:{before:160},children:[new TextRun({text:'',font:'Century Gothic'})]}));
+
+    // ── Tableau détaillé à 2 colonnes (Situation actuelle / Projection TNS)
+    const remuMensSal = d.net_sal!==null ? Math.round(d.net_sal/12) : null;
+    const remuMensTns = Math.round(position.remu/12);
+    const ligneVide = () => new Paragraph({spacing:{before:60},children:[new TextRun({text:'',font:'Century Gothic'})]});
+    const ligneDetail = (label,valeur,opts={}) => {
+      const {italic=false,color='000000',bold=false}=opts;
+      return new Paragraph({spacing:{before:30,after:30},
+        children:[
+          new TextRun({text:label+' : ',size:18,color:'444444',font:'Century Gothic'}),
+          new TextRun({text:valeur,size:18,bold,color,italic,font:'Century Gothic'}),
+        ]});
+    };
+
     elements.push(new Table({width:{size:9638,type:WidthType.DXA},columnWidths:[4819,4819],rows:[new TableRow({children:[
       new TableCell({width:{size:4819,type:WidthType.DXA},
         borders:{top:bfE(),bottom:bf(),left:bf(),right:bf()},
         shading:{fill:GRIS,type:ShadingType.CLEAR},margins:{top:160,bottom:160,left:200,right:200},children:[
-          P('Situation actuelle',{bold:true,color:BLEU,size:22}),
-          P('Dirigeant salarié',{size:18,color:'555555'}),
-          new Paragraph({spacing:{before:100},children:[new TextRun({text:'',font:'Century Gothic'})]}),
-          P('Coût total réel société',{size:16,color:'555555'}),
-          P(fmt(d.cout_sal_reel),{bold:true,size:32,color:BLEU}),
-          P('Net fiscal : '+fmt(d.net_sal),{size:18,bold:true}),
+          P('Situation actuelle',{bold:true,color:BLEU,size:21}),
+          P(`Rémunération : ${remuMensSal!==null?fmt(remuMensSal):'—'} / mois`,{bold:true,color:BLEU,size:18,spacing:{before:20,after:0}}),
+          P('Dirigeant salarié',{size:17,color:'666666',spacing:{before:20,after:120}}),
+          ligneDetail('Salaire net',(d.net_sal!==null?fmt(d.net_sal):'—')+' (avant impôt)'),
+          ligneDetail('Charges totales salaires',fmt(d.cout_sal_reel)),
+          ligneDetail('dont santé collective','% selon CCN',{italic:true,color:'888888'}),
+          ligneDetail('dont prévoyance collective','% selon CCN',{italic:true,color:'888888'}),
+          ligneDetail('dont Retraite régime obligatoire','% selon CCN',{italic:true,color:'888888'}),
+          ligneVide(),
+          P('Coût total réel société',{size:16,color:'555555',spacing:{before:80,after:20}}),
+          P(fmt(d.cout_sal_reel),{bold:true,size:30,color:BLEU}),
       ]}),
       new TableCell({width:{size:4819,type:WidthType.DXA},
         borders:{top:bfE(VERT),bottom:bf(),left:bf(),right:bf()},
         shading:{fill:GRIS,type:ShadingType.CLEAR},margins:{top:160,bottom:160,left:200,right:200},children:[
-          P('Projection TNS',{bold:true,color:VERT,size:22}),
-          P('Gérant majoritaire SARL/EURL',{size:18,color:'555555'}),
-          new Paragraph({spacing:{before:100},children:[new TextRun({text:'',font:'Century Gothic'})]}),
-          P('Coût total réel société',{size:16,color:'555555'}),
-          P(fmt(position.cout_total),{bold:true,size:32,color:VERT}),
-          P('Net fiscal projeté : '+fmt(position.remu),{size:18,bold:true}),
+          P('Projection TNS',{bold:true,color:VERT,size:21}),
+          P(`Rémunération : ${fmt(remuMensTns)} / mois`,{bold:true,color:VERT,size:18,spacing:{before:20,after:0}}),
+          P(`Gérant majoritaire - ${d.caisse_ro}`,{size:17,color:'666666',spacing:{before:20,after:120}}),
+          ligneDetail('Rémunération de gérance',fmt(position.remu)+' (avant impôt)'),
+          ligneDetail('Charges totales gérance',fmt(position.charges)),
+          ligneDetail('Coût Santé (Madelin)',fmt(position.sante_ind)),
+          ligneDetail('Coût Prévoyance (Madelin)',fmt(position.madelin_prev)),
+          ligneDetail('Coût Plan Épargne Retraite - PER (Madelin)',fmt(position.per)),
+          ligneVide(),
+          P('Coût total réel société',{size:16,color:'555555',spacing:{before:80,after:20}}),
+          P(fmt(position.cout_total),{bold:true,size:30,color:VERT}),
       ]}),
     ]})]}));
-    elements.push(new Paragraph({spacing:{before:160},children:[new TextRun({text:'',font:'Century Gothic'})]}));
-    elements.push(new Table({width:{size:9638,type:WidthType.DXA},columnWidths:[9638],rows:[new TableRow({children:[
-      new TableCell({width:{size:9638,type:WidthType.DXA},
-        shading:{fill:avPositif?VERT_C:ROUGE_C,type:ShadingType.CLEAR},
-        borders:{top:bfE(avPositif?VERT:ROUGE),bottom:bf(),left:bf(),right:bf()},
-        margins:{top:160,bottom:160,left:240,right:240},children:[
-          P(avPositif
-            ?`Le statut TNS génère une économie annuelle de ${fmt(avAffiche)} à protection comparable.`
-            :`Le statut salarié reste moins coûteux de ${fmt(-avAffiche)} à protection comparable.`,
-            {bold:true,size:22,color:avPositif?VERT:ROUGE}),
-          P(`Net ${position.diff_net>=0?'supérieur':'inférieur'} de ${fmt(Math.abs(position.diff_net))} en statut TNS.`,
-            {size:18,color:'333333'}),
-      ]})]})]}));
     return elements;
   }
 
@@ -1620,16 +1653,17 @@ async function generateWord(){
 
         // Mention dynamique de la caisse de retraite obligatoire, reprise dans chaque position
         ...(() => {
-          const mentionRO = `Retraite du régime obligatoire incluse, via cotisations obligatoires Urssaf / Caisse Régime obligatoire, ${d.caisse_ro==='CIPAV'?'CIPAV':d.caisse_ro}.`;
+          const mentionRO = `Retraite du régime obligatoire incluse, via cotisations obligatoires Urssaf / ${d.caisse_ro}`;
           const mensuel = (annuel) => fmt(Math.round(annuel/12));
 
           // ── 1. OPTI Zéro — Approche budgétaire maximisée
           const blocZero = blocPositionOptim(
-            1, 'Approche budgétaire maximisée', 'Approche budgétaire maximisée.',
+            1, 'Approche budgétaire maximisée',
             [
-              `À rémunération nette équivalente, une économie budgétaire de ${fmt(optim4.zero.avantage)} / an,`,
+              ['À rémunération nette équivalente, ',{text:`une économie budgétaire de ${fmt(optim4.zero.avantage)} / an`,bold:true,color:VERT},','],
               'Santé et Prévoyance individuelles incluses,',
-              mentionRO,
+              mentionRO+',',
+              'Pas de capitalisation retraite complémentaire PER.',
             ],
             optim4.zero
           );
@@ -1638,12 +1672,11 @@ async function generateWord(){
           const augMixAn = optim4.mix.diff_net||0;
           const blocMix = blocPositionOptim(
             2, 'Approche d\'optimisation maximale du ratio Rémunération & PER à budget constant',
-            'Approche d\'optimisation maximale du ratio Rémunération & PER à budget constant',
             [
-              `Une rémunération nette augmentée de ${mensuel(augMixAn)} / mois (soit ${fmt(augMixAn)} annuel),`,
-              `Une capitalisation PER de ${fmt(optim4.mix.per)} par an,`,
+              ['Une ',{text:`rémunération nette augmentée de ${mensuel(augMixAn)} / mois`,bold:true,color:VERT},` (soit ${fmt(augMixAn)} annuel),`],
+              ['Une ',{text:`capitalisation PER de ${fmt(optim4.mix.per)} par an`,bold:true,color:VERT},','],
               'Santé et Prévoyance individuelles incluses (Déductible Madelin),',
-              mentionRO,
+              mentionRO+'.',
             ],
             optim4.mix
           );
@@ -1652,11 +1685,10 @@ async function generateWord(){
           const augRemAn = optim4.rem.diff_net||0;
           const blocRem = blocPositionOptim(
             3, 'Approche de maximisation de la rémunération à budget constant',
-            'Approche de maximisation de la rémunération à budget constant',
             [
-              `Une rémunération nette augmentée de ${mensuel(augRemAn)} / mois (soit ${fmt(augRemAn)} annuel),`,
+              ['Une ',{text:`rémunération nette augmentée de ${mensuel(augRemAn)} / mois`,bold:true,color:VERT},` (soit ${fmt(augRemAn)} annuel),`],
               'Santé et Prévoyance individuelles incluses (Déductible Madelin),',
-              mentionRO,
+              mentionRO+',',
               'Pas de capitalisation retraite complémentaire PER.',
             ],
             optim4.rem
@@ -1666,12 +1698,11 @@ async function generateWord(){
           const augPerAn = optim4.per.diff_net||0;
           const blocPer = blocPositionOptim(
             4, 'Approche de maximisation de la capitalisation retraite complémentaire',
-            'Approche de maximisation de la capitalisation retraite complémentaire',
             [
-              `Une capitalisation PER maximisée de ${fmt(optim4.per.per)} par an,`,
-              `Une rémunération nette augmentée de ${mensuel(augPerAn)} / mois (soit ${fmt(augPerAn)} annuel),`,
+              ['Une ',{text:`capitalisation PER maximisée de ${fmt(optim4.per.per)} par an`,bold:true,color:VERT},','],
+              ['Une ',{text:`rémunération nette augmentée de ${mensuel(augPerAn)} / mois`,bold:true,color:VERT},` (soit ${fmt(augPerAn)} annuel),`],
               'Santé et Prévoyance individuelles incluses (Déductible Madelin),',
-              mentionRO,
+              mentionRO+'.',
             ],
             optim4.per
           );
