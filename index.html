@@ -411,6 +411,24 @@ function tauxRO(remuneration, caisse){
   return (t !== null && t !== undefined) ? t : null;
 }
 
+// Taux de réintégration de l'assiette Madelin (Santé + Prévoyance + PER) dans la base de calcul
+// des charges du régime obligatoire. 26 % d'abattement retiré, donc 74 % de l'assiette est réintégré.
+const TAUX_REINTEGRATION_MADELIN = 0.74; // = 1 - 26%
+
+// Calcule les charges du régime obligatoire (SSI/CIPAV/MSA) sur une base élargie qui réintègre
+// une fraction des cotisations Santé + Prévoyance + PER Madelin (26 % d'abattement retiré).
+// C'est désormais LA fonction de référence à utiliser partout dans le simulateur pour calculer
+// les charges de rémunération de gérance, à la place de l'ancien `remu * tauxRO(remu, caisse)`.
+// Retourne { base, taux, charges } pour permettre l'affichage du détail si besoin.
+function chargesGerance(remu, sante, prevoyance, per, caisse){
+  const assiette = (sante||0) + (prevoyance||0) + (per||0);
+  const assietteReintegree = assiette * TAUX_REINTEGRATION_MADELIN;
+  const base = remu + assietteReintegree;
+  const taux = tauxRO(base, caisse) ?? 0.45;
+  const charges = base * taux;
+  return { base, taux, charges, assietteReintegree };
+}
+
 function renderTableRO(){
   const head = document.getElementById('table-ro-head');
   const body = document.getElementById('table-ro-body');
@@ -732,25 +750,35 @@ function compute(){
         <div class="mv ${av>=0?'green':'red'}">${fmt(Math.abs(av))}</div>
         <div class="ms">par an vs salarié</div></div>`;
 
-    // Marge de rémunération mensuelle possible (hors PER) : on cherche par itération la
-    // rémunération de gérance maximale telle que remu + charges_oblig(remu) + santé + prévoyance = budget salarié.
-    // (sans recalcul de tranche, av/12 sous-estime/surestime la marge réelle car le taux de charge change avec la tranche)
-    let remuOptHorsPer = coutSalRef * 0.6;
-    for(let i=0;i<40;i++){
-      const cot = remuOptHorsPer * (tauxRO(remuOptHorsPer, caisseRo) ?? 0.45);
-      remuOptHorsPer = coutSalRef - cot - (santeInd||0) - (madelinPrev||0);
-      if(remuOptHorsPer < 0) remuOptHorsPer = 0;
+    // Marge de rémunération mensuelle possible (hors PER) : recherche par dichotomie de la
+    // rémunération de gérance maximale telle que charges_gerance(remu, santé, prévoyance, PER=0)
+    // + santé + prévoyance = budget salarié. Dichotomie plutôt qu'itération à point fixe : la
+    // fonction a des sauts de tranche qui font osciller une boucle classique sans converger.
+    function coutSansPerPourMarge(remu){
+      const c = chargesGerance(remu, santeInd, madelinPrev, 0, caisseRo);
+      return remu + c.charges + (santeInd||0) + (madelinPrev||0);
     }
+    let loHP = 0, hiHP = Math.max(coutSalRef, 1);
+    for(let i=0;i<60;i++){
+      const mid = (loHP+hiHP)/2;
+      if(coutSansPerPourMarge(mid) < coutSalRef) loHP = mid; else hiHP = mid;
+    }
+    const remuOptHorsPer = (loHP+hiHP)/2;
     const margeMensuelleHorsPer = netSalRef!==null ? Math.max(0, (remuOptHorsPer - netSalRef) / 12) : 0;
 
-    // Marge de rémunération mensuelle possible avec PER optimisé au max (point d'équilibre)
-    let remuOptPer = coutSalRef * 0.6;
-    for(let i=0;i<40;i++){
-      const cot = remuOptPer * (tauxRO(remuOptPer, caisseRo) ?? 0.45);
-      const perMax = plafonds(remuOptPer).ret_max;
-      remuOptPer = coutSalRef - cot - (santeInd||0) - (madelinPrev||0) - perMax;
-      if(remuOptPer < 0) remuOptPer = 0;
+    // Marge de rémunération mensuelle possible avec PER optimisé au max (point d'équilibre),
+    // également par dichotomie pour la même raison de stabilité face aux sauts de tranche.
+    function coutAvecPerMaxPourMarge(remu){
+      const perMax = plafonds(remu).ret_max;
+      const c = chargesGerance(remu, santeInd, madelinPrev, perMax, caisseRo);
+      return remu + c.charges + (santeInd||0) + (madelinPrev||0) + perMax;
     }
+    let loAP = 0, hiAP = Math.max(coutSalRef, 1);
+    for(let i=0;i<60;i++){
+      const mid = (loAP+hiAP)/2;
+      if(coutAvecPerMaxPourMarge(mid) < coutSalRef) loAP = mid; else hiAP = mid;
+    }
+    const remuOptPer = (loAP+hiAP)/2;
     const margeMensuelleAvecPer = netSalRef!==null ? Math.max(0, (remuOptPer - netSalRef) / 12) : 0;
 
     const vEl = document.getElementById(verdictId);
@@ -806,9 +834,9 @@ function renderRubricOptim(d){
   // sans jamais converger (elle pouvait s'arrêter sur une valeur fausse selon la parité du nombre
   // d'itérations). La dichotomie reste stable même avec ces discontinuités.
   function coutTotalPour(remu){
-    const cotage = remu * (tauxRO(remu, caisse_ro) ?? 0.45);
     const perMaxage = plafonds(remu).ret_max;
-    return remu + cotage + sante_ind + madelin_prev + perMaxage;
+    const c = chargesGerance(remu, sante_ind, madelin_prev, perMaxage, caisse_ro);
+    return remu + c.charges + sante_ind + madelin_prev + perMaxage;
   }
   let lo = 0, hi = Math.max(budgetCible, netSalRef*1.5, 1);
   for(let i=0;i<60;i++){
@@ -823,8 +851,8 @@ function renderRubricOptim(d){
   // Utilisé par le bouton favori "Rémunération Max" : au-delà de ce point, même un PER à 0 €
   // ne suffit plus à éviter le dépassement de budget.
   function coutSansPerPour(remu){
-    const cotage = remu * (tauxRO(remu, caisse_ro) ?? 0.45);
-    return remu + cotage + sante_ind + madelin_prev;
+    const c = chargesGerance(remu, sante_ind, madelin_prev, 0, caisse_ro);
+    return remu + c.charges + sante_ind + madelin_prev;
   }
   let loB = 0, hiB = Math.max(budgetCible, netSalRef*1.5, 1);
   for(let i=0;i<60;i++){
@@ -934,16 +962,22 @@ function renderRubricOptim(d){
   elPer.max = Math.round(perMaxCourant);
   inPer.max = Math.round(perMaxCourant);
 
-  // Charges obligatoires sur la rémunération courante (formule inchangée), calculées ici
-  // car nécessaires pour la contrainte budgétaire du PER ci-dessous.
-  const cot = remuCourante * (tauxRO(remuCourante, caisse_ro) ?? 0.45);
-  const coutSansPer = remuCourante + cot + sante_ind + madelin_prev;
+  // Coût total pour un montant de PER donné, avec l'assiette réintégrée qui inclut CE PER
+  // (dépendance circulaire : charges dépend du PER, qui dépend lui-même du budget restant après
+  // charges — résolue par dichotomie directement sur le PER plutôt que sur la rémunération).
+  function coutTotalAvecPer(per){
+    const c = chargesGerance(remuCourante, sante_ind, madelin_prev, per, caisse_ro);
+    return remuCourante + c.charges + sante_ind + madelin_prev + per;
+  }
 
   // PER : démarre à 0 € au tout premier chargement (rémunération = net salarié actuel).
   // Ensuite, il suit automatiquement le plafond max chaque fois que ce n'est pas lui qui vient
   // d'être manipulé (Optimisation/Rémunération priment) — SAUF si ce plafond max ferait dépasser
-  // le budget total : dans ce cas, le PER est réduit juste assez pour ne pas dépasser le budget
-  // (sans descendre sous 0), pour laisser la priorité à l'augmentation de la rémunération.
+  // le budget total : dans ce cas, le PER est réduit par dichotomie jusqu'au montant qui ramène le
+  // coût total exactement au budget (sans descendre sous 0), pour laisser la priorité à la
+  // rémunération. La dichotomie est nécessaire (pas une simple soustraction) car le PER fait
+  // maintenant partie de l'assiette réintégrée qui détermine les charges : augmenter/diminuer le
+  // PER change aussi le taux de charge appliqué, donc tout est interdépendant.
   // Si l'utilisateur vient de toucher le curseur/champ PER lui-même, sa valeur choisie est conservée
   // (simplement clampée au nouveau plafond, qui ne peut pas changer dans ce cas précis).
   let perCourant;
@@ -951,16 +985,29 @@ function renderRubricOptim(d){
     perCourant = 0;
   } else if(window._lastTouched === 'per'){
     perCourant = Math.max(0, Math.min(window._lastValue || 0, perMaxCourant));
+  } else if(coutTotalAvecPer(perMaxCourant) <= budgetCible){
+    // Le plafond max théorique ne dépasse pas le budget : on le prend intégralement.
+    perCourant = perMaxCourant;
+  } else if(coutTotalAvecPer(0) > budgetCible){
+    // Même PER à 0 dépasse déjà le budget (rémunération seule trop élevée) : on ne peut pas faire mieux.
+    perCourant = 0;
   } else {
-    const perSansDepassement = budgetCible - coutSansPer;
-    perCourant = Math.max(0, Math.min(perMaxCourant, perSansDepassement));
+    // Cas intermédiaire : dichotomie pour trouver le PER qui ramène le coût total au budget.
+    let loP = 0, hiP = perMaxCourant;
+    for(let i=0;i<60;i++){
+      const mid = (loP+hiP)/2;
+      if(coutTotalAvecPer(mid) < budgetCible) loP = mid; else hiP = mid;
+    }
+    perCourant = (loP+hiP)/2;
   }
   elPer.value = Math.round(perCourant); inPer.value = Math.round(perCourant);
   document.getElementById('optim_per_label').textContent = fmt(perCourant);
   document.getElementById('optim_per_max_label').textContent = fmt(perMaxCourant) + ' (plafond max)';
 
-  // ── Calcul final du coût total pour la rémunération + PER courants
-  const cout_total = coutSansPer + perCourant;
+  // ── Calcul final des charges (base élargie réintégrant Santé + Prévoyance + PER courant)
+  // et du coût total pour la rémunération + PER courants
+  const { charges: chargesFinal, taux: tauxFinal, base: baseFinal } = chargesGerance(remuCourante, sante_ind, madelin_prev, perCourant, caisse_ro);
+  const cout_total = remuCourante + chargesFinal + sante_ind + madelin_prev + perCourant;
   const ecart = budgetCible - cout_total;
   const ecartColor = Math.abs(ecart) < 50 ? '#1E6E3E' : (ecart > 0 ? '#1E6E3E' : '#8B1A1A');
 
@@ -981,7 +1028,7 @@ function renderRubricOptim(d){
     <div class="ccard active">
       <div class="ccard-head tns">Projection TNS — optimisation rémunération / PER<div style="font-size:11px;font-weight:400;opacity:.85;margin-top:2px">Rémunération Mensuelle : ${Math.round(remuCourante/12).toLocaleString('fr-FR')} € / mois</div></div>
       <div class="cline"><span class="cn">Rémunération gérance avant impôt</span><span class="cv">${fmt(remuCourante)}</span></div>
-      <div class="cline"><span class="cn">Charges totales gérance (y compris retraite oblig. ${caisse_ro})</span><span class="cv">${fmt(cot)}</span></div>
+      <div class="cline"><span class="cn">Charges totales gérance (y compris retraite oblig. ${caisse_ro}, taux ${(tauxFinal*100).toFixed(1)}% sur base élargie)</span><span class="cv">${fmt(chargesFinal)}</span></div>
       <div class="cline si"><span class="cn">Coût Santé (Madelin)</span><span class="cv">${fmt(sante_ind)}</span></div>
       <div class="cline si"><span class="cn">Coût Prévoyance (Madelin)</span><span class="cv">${fmt(madelin_prev)}</span></div>
       <div class="cline si"><span class="cn">Coût Plan Épargne Retraite - PER (Madelin)</span><span class="cv">${fmt(perCourant)}</span></div>
