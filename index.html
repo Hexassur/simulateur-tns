@@ -300,36 +300,45 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
 
   <!-- RÉSULTATS -->
   <div class="card">
-    <div class="card-title">⚖ Comparateurs</div>
+    <div class="card-title">⚖ Optimisation Rémunération / PER</div>
 
-    <div class="rubric-tabs">
-      <button class="rubric-tab active" onclick="showRubric('budget',this)">💰 Rémunération constante, optimisation budget</button>
-      <button class="rubric-tab" onclick="showRubric('retraite',this)">🏦 Budget constant, optimisation retraite</button>
-    </div>
+    <div id="rubric-optim" class="rubric-panel active">
+      <div class="rubric-intro">Budget total fixe = coût société actuel du salarié. Les 3 curseurs ci-dessous sont interconnectés : ajuster l'un recalcule les autres en temps réel (charges, plafond PER, écart au budget). La rémunération ne peut pas descendre sous le net salarié actuel.</div>
+      <div class="metrics" id="metrics-optim"></div>
+      <div class="verdict" id="verdict-optim"></div>
 
-    <div id="rubric-budget" class="rubric-panel active">
-      <div class="rubric-intro">L'enjeu est de montrer l'économie globale entre les deux statuts, à rémunération identique — hors optimisation retraite. Santé et Prévoyance Madelin sont intégrés ; le PER reste ajustable manuellement si tu veux simuler un complément retraite.</div>
-      <div class="metrics" id="metrics"></div>
-      <div class="verdict" id="verdict"></div>
-      <div id="rubric-budget-slider-wrap"></div>
-      <div class="comp" id="rubric-budget-cards"></div>
-    </div>
-
-    <div id="rubric-retraite" class="rubric-panel">
-      <div class="rubric-intro">Le simulateur calcule automatiquement la rémunération de gérance maximale qui, combinée au PER au plafond max, atteint le budget du salarié sans le dépasser. Le curseur permet d'ajuster manuellement la rémunération autour de ce point optimal (de 80 % à 120 %).</div>
-      <div class="metrics" id="metrics-retraite"></div>
-      <div class="verdict" id="verdict-retraite"></div>
       <div class="slider-block">
-        <label for="slider_per_retraite" style="font-size:12px;font-weight:600;color:#444">Curseur de rémunération (le PER suit automatiquement son plafond max)</label>
-        <input type="range" id="slider_per_retraite" min="80" max="120" value="100" style="width:100%;margin:10px 0">
+        <label for="slider_optim_pct" style="font-size:12px;font-weight:600;color:#444">Curseur Optimisation (% du point d'équilibre TNS)</label>
+        <input type="range" id="slider_optim_pct" min="0" max="150" value="0" step="0.1" style="width:100%;margin:10px 0">
         <div style="display:flex;justify-content:space-between;font-size:11px;color:#888">
-          <span>← 80 % (rémunération réduite)</span>
-          <span id="slider_per_label" style="font-weight:600;color:#082C38">100 % — point optimal</span>
-          <span>120 % (rémunération majorée) →</span>
+          <span id="optim_pct_min_label">— % (net salarié actuel)</span>
+          <span id="optim_pct_label" style="font-weight:600;color:#082C38">100 % — point d'équilibre</span>
+          <span>150 % (rémunération majorée)</span>
         </div>
       </div>
-      <div class="comp" id="rubric-retraite-cards"></div>
-      <div class="note" id="rubric-retraite-note"></div>
+
+      <div class="slider-block">
+        <label for="slider_optim_remu" style="font-size:12px;font-weight:600;color:#444">Curseur Rémunération de gérance (€/an)</label>
+        <input type="range" id="slider_optim_remu" min="0" max="100000" value="0" step="100" style="width:100%;margin:10px 0">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:#888">
+          <span id="optim_remu_min_label">— €</span>
+          <span id="optim_remu_label" style="font-weight:600;color:#082C38">— €</span>
+          <span id="optim_remu_max_label">— €</span>
+        </div>
+      </div>
+
+      <div class="slider-block">
+        <label for="slider_optim_per" style="font-size:12px;font-weight:600;color:#444">Curseur PER Madelin (€/an) — plafond recalculé selon la rémunération ci-dessus</label>
+        <input type="range" id="slider_optim_per" min="0" max="10000" value="0" step="50" style="width:100%;margin:10px 0">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:#888">
+          <span>0 € (aucun PER)</span>
+          <span id="optim_per_label" style="font-weight:600;color:#082C38">— €</span>
+          <span id="optim_per_max_label">— € (plafond max)</span>
+        </div>
+      </div>
+
+      <div class="comp" id="rubric-optim-cards"></div>
+      <div class="note" id="rubric-optim-note"></div>
     </div>
   </div>
 
@@ -755,111 +764,126 @@ function compute(){
       <div class="pc-formula">10 % du PASS — plancher réglementaire applicable même à rémunération nulle ou faible.</div>
     </div>`;
 
-  // ── Rubriques Comparateurs
-  renderRubricBudget({brut, cout_total, net_sal, cout_sal_reel, ret_supp, pei, pereco, caisse_ro, sante_ind, madelin_prev, madelin_ret});
-  renderRubricRetraite({cout_sal_reel, net_sal, caisse_ro, sante_ind, madelin_prev, ret_supp, pei, pereco});
+  // ── Rubrique unique : Optimisation Rémunération / PER
+  renderRubricOptim({net_sal, cout_sal_reel, ret_supp, pei, pereco, caisse_ro, sante_ind, madelin_prev});
 }
 
-// ── Rubrique 1 : Rémunération constante, optimisation budget ────────────────
-function renderRubricBudget(d){
+// ── Rubrique unique : Optimisation Rémunération / PER ────────────────────────
+// État interne : mémorise si le PER a été touché manuellement par l'utilisateur,
+// pour savoir si on doit le recaler automatiquement au plafond max ou le laisser tel quel.
+window._lastTouched = null;
+
+function renderRubricOptim(d){
   const { net_sal, cout_sal_reel, ret_supp, pei, pereco, caisse_ro, sante_ind, madelin_prev } = d;
-  const remu = net_sal !== null ? net_sal : 0;
+  const budgetCible = cout_sal_reel;
+  const netSalRef = net_sal !== null ? net_sal : 0;
 
-  // PER optionnel ajustable manuellement (slider propre à cette rubrique)
-  const sliderEl = document.getElementById('slider_budget_per');
-  const perPct = sliderEl ? parseInt(sliderEl.value) : 0;
-  const pl_b = plafonds(remu);
-  const per_b = Math.round(pl_b.ret_max * perPct/100);
+  // ── Étape 1 : calcul du point d'équilibre (100%) — rémunération maximale telle que
+  // remu + charges_oblig(remu) + santé + prévoyance + PER_max(remu) = budgetCible.
+  // Dichotomie plutôt qu'itération à point fixe : la fonction "coût total(rémunération)" a des
+  // sauts brusques aux frontières de tranche de taux, ce qui faisait osciller l'ancienne boucle
+  // sans jamais converger (elle pouvait s'arrêter sur une valeur fausse selon la parité du nombre
+  // d'itérations). La dichotomie reste stable même avec ces discontinuités.
+  function coutTotalPour(remu){
+    const cotage = remu * (tauxRO(remu, caisse_ro) ?? 0.45);
+    const perMaxage = plafonds(remu).ret_max;
+    return remu + cotage + sante_ind + madelin_prev + perMaxage;
+  }
+  let lo = 0, hi = Math.max(budgetCible, netSalRef*1.5, 1);
+  for(let i=0;i<60;i++){
+    const mid = (lo+hi)/2;
+    if(coutTotalPour(mid) < budgetCible) lo = mid; else hi = mid;
+  }
+  let remuOpt = (lo+hi)/2;
+  if(remuOpt < netSalRef) remuOpt = netSalRef; // garde-fou : le point d'équilibre ne peut pas être sous le net salarié
 
-  const cot_b = remu>0 ? remu * (tauxRO(remu, caisse_ro) ?? 0) : 0;
-  const cout_tns_b = remu + cot_b + sante_ind + madelin_prev + per_b;
-  const economie_b = cout_sal_reel - cout_tns_b;
+  // ── Bornes du système : plancher = net salarié actuel, plafond = 150% du point d'équilibre
+  const pctMin = remuOpt>0 ? (netSalRef/remuOpt*100) : 0;
+  const pctMax = 150;
+  const remuMin = netSalRef;
+  const remuMax = remuOpt * (pctMax/100);
 
-  document.getElementById('rubric-budget-cards').innerHTML = `
-    <div class="ccard">
-      <div class="ccard-head">Situation actuelle — Dirigeant salarié</div>
-      <div class="cline"><span class="cn">Salaire net avant impôt</span><span class="cv">${net_sal!==null?fmt(net_sal):'—'}</span></div>
-      <div class="cline"><span class="cn">Charges totales salaires</span><span class="cv">${fmt(cout_sal_reel)}</span></div>
-      <div class="cline si"><span class="cn">dont Santé collective</span><span class="cv" style="color:#888;font-style:italic">% selon CCN</span></div>
-      <div class="cline si"><span class="cn">dont Prévoyance collective</span><span class="cv" style="color:#888;font-style:italic">% selon CCN</span></div>
-      <div class="cline si"><span class="cn">dont Retraite régime obligatoire</span><span class="cv" style="color:#888;font-style:italic">% selon CCN</span></div>
-      <div class="cline tot"><span class="cn">Coût total réel</span><span class="cv">${fmt(cout_sal_reel)}</span></div>
-      <div class="cline sh"><span class="cn">Dont dispositifs d'épargnes</span><span class="cv"></span></div>
-      <div class="cline si"><span class="cn">Épargne salariale PEI (participation, intéressement...)</span><span class="cv">${pei>0?fmt(pei):'—'}</span></div>
-      <div class="cline si"><span class="cn">Épargne retraite PERECO (retraite collective)</span><span class="cv">${pereco>0?fmt(pereco):'—'}</span></div>
-      <div class="cline si"><span class="cn">Retraite supplémentaire (Art. 83 / PEROB)</span><span class="cv">${ret_supp>0?fmt(ret_supp):'—'}</span></div>
-    </div>
-    <div class="ccard active">
-      <div class="ccard-head tns">Projection TNS — même rémunération nette</div>
-      <div class="cline"><span class="cn">Rémunération gérance avant impôt</span><span class="cv">${fmt(remu)}</span></div>
-      <div class="cline"><span class="cn">Charges totales gérance (y compris retraite oblig. ${caisse_ro})</span><span class="cv">${fmt(cot_b)}</span></div>
-      <div class="cline si"><span class="cn">Coût Santé (Madelin)</span><span class="cv">${fmt(sante_ind)}</span></div>
-      <div class="cline si"><span class="cn">Coût Prévoyance (Madelin)</span><span class="cv">${fmt(madelin_prev)}</span></div>
-      <div class="cline si"><span class="cn">PER Madelin (optionnel, ${perPct}% du plafond)</span><span class="cv">${fmt(per_b)}</span></div>
-      <div class="cline tot"><span class="cn">Coût total réel</span><span class="cv">${fmt(cout_tns_b)}</span></div>
-      <div class="cline sh"><span class="cn">Dont dispositifs d'épargnes</span><span class="cv"></span></div>
-      <div class="cline si"><span class="cn">Épargne salariale PEI (participation, intéressement...)</span><span class="cv">—</span></div>
-      <div class="cline si"><span class="cn">Épargne retraite PERECO (retraite collective)</span><span class="cv">—</span></div>
-      <div class="cline si" style="font-style:italic;color:#AAA;font-size:11px"><span class="cn">Les TNS peuvent accéder aux dispositifs d'épargne salariale s'ils sont mis en place pour les salariés.</span><span class="cv"></span></div>
-    </div>`;
+  const elPct  = document.getElementById('slider_optim_pct');
+  const elRemu = document.getElementById('slider_optim_remu');
+  const elPer  = document.getElementById('slider_optim_per');
 
-  // Slider PER optionnel — le conteneur existe déjà dans le HTML (vide au départ)
-  const sliderWrap = document.getElementById('rubric-budget-slider-wrap');
-  if(!sliderWrap.dataset.init){
-    sliderWrap.className = 'slider-block';
-    sliderWrap.innerHTML = `
-      <label style="font-size:12px;font-weight:600;color:#444">PER optionnel (% du plafond max) — pour simuler un complément retraite sur ce budget</label>
-      <input type="range" id="slider_budget_per" min="0" max="100" value="0" style="width:100%;margin:10px 0">
-      <div style="display:flex;justify-content:space-between;font-size:11px;color:#888">
-        <span>0 % (aucun PER)</span>
-        <span id="slider_budget_label" style="font-weight:600;color:#082C38">0 %</span>
-        <span>100 % (plafond max)</span>
-      </div>`;
-    sliderWrap.dataset.init = '1';
-    document.getElementById('slider_budget_per').addEventListener('input', function(){
-      document.getElementById('slider_budget_label').textContent = this.value + ' %';
+  // ── Initialisation des sliders (une seule fois) : bornes + position de départ = plancher
+  if(!elPct.dataset.init){
+    elPct.min = 0; elPct.max = pctMax; // on garde une échelle 0-150 stable ; le plancher est appliqué par clamp, pas par min=
+    elPct.value = pctMin;
+    elRemu.min = Math.round(remuMin); elRemu.max = Math.round(remuMax); elRemu.value = Math.round(remuMin);
+    elPct.dataset.init = '1'; elRemu.dataset.init = '1';
+
+    elPct.addEventListener('input', function(){
+      window._lastTouched = 'pct';
       compute();
     });
+    elRemu.addEventListener('input', function(){
+      window._lastTouched = 'remu';
+      compute();
+    });
+    elPer.addEventListener('input', function(){
+      window._lastTouched = 'per';
+      compute();
+    });
+  }
+
+  // ── Détermine la rémunération courante selon le dernier curseur manipulé
+  // (par défaut, au premier calcul, on part du plancher = net salarié)
+  let remuCourante;
+  if(window._lastTouched === 'remu'){
+    remuCourante = parseFloat(elRemu.value);
+  } else if(window._lastTouched === 'pct'){
+    remuCourante = remuOpt * (parseFloat(elPct.value)/100);
   } else {
-    document.getElementById('slider_budget_label').textContent = perPct + ' %';
+    remuCourante = parseFloat(elRemu.value) || remuMin;
   }
+  // Clamp dans les bornes (le plancher net salarié est une vraie limite infranchissable)
+  remuCourante = Math.max(remuMin, Math.min(remuMax, remuCourante));
 
-  // Métriques + verdict communs, calculés pour cette rubrique
-  window.renderMetricsVerdict('metrics', 'verdict', remu, cout_tns_b, net_sal, cout_sal_reel, sante_ind + madelin_prev + per_b, caisse_ro, sante_ind, madelin_prev);
-}
+  const pctCourant = remuOpt>0 ? (remuCourante/remuOpt*100) : 0;
 
-// ── Rubrique 2 : Budget constant, optimisation retraite ──────────────────────
-function renderRubricRetraite(d){
-  const { cout_sal_reel, net_sal, caisse_ro, sante_ind, madelin_prev, ret_supp, pei, pereco } = d;
-  const budgetCible = cout_sal_reel;
+  // Resynchroniser les deux curseurs Rémunération / Optimisation sur la même valeur
+  elPct.min = 0; elPct.max = pctMax;
+  elPct.value = pctCourant;
+  elRemu.min = Math.round(remuMin); elRemu.max = Math.round(remuMax);
+  elRemu.value = Math.round(remuCourante);
 
-  // ── Étape 1 : calcul du point optimal — rémunération maximale telle que
-  // remu + charges_oblig(remu) + santé + prévoyance + PER_max(remu) = budgetCible
-  let remuOpt = budgetCible * 0.6;
-  for(let i=0;i<40;i++){
-    const cot = remuOpt * (tauxRO(remuOpt, caisse_ro) ?? 0.45);
-    const perMax = plafonds(remuOpt).ret_max;
-    remuOpt = budgetCible - cot - sante_ind - madelin_prev - perMax;
-    if(remuOpt < 0) remuOpt = 0;
+  document.getElementById('optim_pct_min_label').textContent = `${pctMin.toFixed(0)} % (net salarié actuel)`;
+  document.getElementById('optim_pct_label').textContent =
+    Math.abs(pctCourant-100)<0.5 ? '100 % — point d\'équilibre' : `${pctCourant.toFixed(0)} %`;
+  document.getElementById('optim_remu_min_label').textContent = fmt(remuMin);
+  document.getElementById('optim_remu_max_label').textContent = fmt(remuMax);
+  document.getElementById('optim_remu_label').textContent = fmt(remuCourante);
+
+  // ── Plafond PER recalculé sur la rémunération courante
+  const perMaxCourant = plafonds(remuCourante).ret_max;
+  elPer.max = Math.round(perMaxCourant);
+
+  // PER : démarre à 0 € au tout premier chargement (rémunération = net salarié actuel).
+  // Ensuite, il suit automatiquement le plafond max chaque fois que ce n'est pas lui qui vient
+  // d'être manipulé (Optimisation/Rémunération priment et recalent le PER au max disponible).
+  // Si l'utilisateur vient de toucher le curseur PER lui-même, sa valeur choisie est conservée
+  // (simplement clampée au nouveau plafond, qui ne peut pas changer dans ce cas précis).
+  let perCourant;
+  if(window._lastTouched === null){
+    perCourant = 0;
+  } else if(window._lastTouched === 'per'){
+    perCourant = Math.min(parseFloat(elPer.value) || 0, perMaxCourant);
+  } else {
+    perCourant = perMaxCourant;
   }
+  elPer.value = Math.round(perCourant);
+  document.getElementById('optim_per_label').textContent = fmt(perCourant);
+  document.getElementById('optim_per_max_label').textContent = fmt(perMaxCourant) + ' (plafond max)';
 
-  // ── Étape 2 : le curseur applique un ratio 80%-120% autour du point optimal
-  const sliderEl = document.getElementById('slider_per_retraite');
-  const sliderVal = sliderEl ? parseInt(sliderEl.value) : 100;
-  const remu = remuOpt * (sliderVal/100);
-
-  // ── Étape 3 : recalcul des charges et du PER (à son plafond max) pour cette rémunération
-  const cot_r = remu * (tauxRO(remu, caisse_ro) ?? 0.45);
-  const per_r = plafonds(remu).ret_max;
-  const cout_total_r = remu + cot_r + sante_ind + madelin_prev + per_r;
-  const ecart = budgetCible - cout_total_r;
-
-  document.getElementById('slider_per_label').textContent =
-    sliderVal===100 ? '100 % — point optimal' : `${sliderVal} % de la rémunération optimale`;
-
+  // ── Calcul final des charges et du coût total pour la rémunération + PER courants
+  const cot = remuCourante * (tauxRO(remuCourante, caisse_ro) ?? 0.45);
+  const cout_total = remuCourante + cot + sante_ind + madelin_prev + perCourant;
+  const ecart = budgetCible - cout_total;
   const ecartColor = Math.abs(ecart) < 50 ? '#1E6E3E' : (ecart > 0 ? '#1E6E3E' : '#8B1A1A');
 
-  document.getElementById('rubric-retraite-cards').innerHTML = `
+  document.getElementById('rubric-optim-cards').innerHTML = `
     <div class="ccard">
       <div class="ccard-head">Situation actuelle — Dirigeant salarié<div style="font-size:11px;font-weight:400;opacity:.85;margin-top:2px">Rémunération Mensuelle : ${net_sal!==null?Math.round(net_sal/12).toLocaleString('fr-FR'):'—'} € / mois</div></div>
       <div class="cline"><span class="cn">Salaire net avant impôt</span><span class="cv">${net_sal!==null?fmt(net_sal):'—'}</span></div>
@@ -868,20 +892,19 @@ function renderRubricRetraite(d){
       <div class="cline si"><span class="cn">dont Prévoyance collective</span><span class="cv" style="color:#888;font-style:italic">% selon CCN</span></div>
       <div class="cline si"><span class="cn">dont Retraite régime obligatoire</span><span class="cv" style="color:#888;font-style:italic">% selon CCN</span></div>
       <div class="cline tot"><span class="cn">Coût total réel</span><span class="cv">${fmt(cout_sal_reel)}</span></div>
-      <div class="cline"><span class="cn">&nbsp;</span><span class="cv"></span></div>
       <div class="cline sh"><span class="cn">Dont dispositifs d'épargnes</span><span class="cv"></span></div>
       <div class="cline si"><span class="cn">Épargne salariale PEI (participation, intéressement...)</span><span class="cv">${pei>0?fmt(pei):'—'}</span></div>
       <div class="cline si"><span class="cn">Épargne retraite PERECO (retraite collective)</span><span class="cv">${pereco>0?fmt(pereco):'—'}</span></div>
       <div class="cline si"><span class="cn">Retraite supplémentaire (Art. 83 / PEROB)</span><span class="cv">${ret_supp>0?fmt(ret_supp):'—'}</span></div>
     </div>
     <div class="ccard active">
-      <div class="ccard-head tns">Projection TNS — optimisation retraite<div style="font-size:11px;font-weight:400;opacity:.85;margin-top:2px">Rémunération Mensuelle : ${Math.round(remu/12).toLocaleString('fr-FR')} € / mois</div></div>
-      <div class="cline"><span class="cn">Rémunération gérance avant impôt</span><span class="cv">${fmt(remu)}</span></div>
-      <div class="cline"><span class="cn">Charges totales gérance (y compris retraite oblig. ${caisse_ro})</span><span class="cv">${fmt(cot_r)}</span></div>
+      <div class="ccard-head tns">Projection TNS — optimisation rémunération / PER<div style="font-size:11px;font-weight:400;opacity:.85;margin-top:2px">Rémunération Mensuelle : ${Math.round(remuCourante/12).toLocaleString('fr-FR')} € / mois</div></div>
+      <div class="cline"><span class="cn">Rémunération gérance avant impôt</span><span class="cv">${fmt(remuCourante)}</span></div>
+      <div class="cline"><span class="cn">Charges totales gérance (y compris retraite oblig. ${caisse_ro})</span><span class="cv">${fmt(cot)}</span></div>
       <div class="cline si"><span class="cn">Coût Santé (Madelin)</span><span class="cv">${fmt(sante_ind)}</span></div>
       <div class="cline si"><span class="cn">Coût Prévoyance (Madelin)</span><span class="cv">${fmt(madelin_prev)}</span></div>
-      <div class="cline si"><span class="cn">Coût Plan Épargne Retraite - PER (Madelin, plafond max)</span><span class="cv">${fmt(per_r)}</span></div>
-      <div class="cline tot"><span class="cn">Coût total réel</span><span class="cv">${fmt(cout_total_r)}</span></div>
+      <div class="cline si"><span class="cn">Coût Plan Épargne Retraite - PER (Madelin)</span><span class="cv">${fmt(perCourant)}</span></div>
+      <div class="cline tot"><span class="cn">Coût total réel</span><span class="cv">${fmt(cout_total)}</span></div>
       <div class="cline" style="color:${ecartColor};font-weight:700"><span class="cn">Écart au budget salarié</span><span class="cv">${ecart>=0?'+':''}${fmt(ecart)}</span></div>
       <div class="cline sh"><span class="cn">Dont dispositifs d'épargnes</span><span class="cv"></span></div>
       <div class="cline si"><span class="cn">Épargne salariale PEI (participation, intéressement...)</span><span class="cv">—</span></div>
@@ -889,20 +912,12 @@ function renderRubricRetraite(d){
       <div class="cline si" style="font-style:italic;color:#AAA;font-size:11px"><span class="cn">Les TNS peuvent accéder aux dispositifs d'épargne salariale s'ils sont mis en place pour les salariés.</span><span class="cv"></span></div>
     </div>`;
 
-  window.renderMetricsVerdict('metrics-retraite', 'verdict-retraite', remu, cout_total_r, net_sal, cout_sal_reel, sante_ind + madelin_prev + per_r, caisse_ro, sante_ind, madelin_prev);
+  window.renderMetricsVerdict('metrics-optim', 'verdict-optim', remuCourante, cout_total, net_sal, cout_sal_reel, sante_ind + madelin_prev + perCourant, caisse_ro, sante_ind, madelin_prev);
 
-  document.getElementById('rubric-retraite-note').textContent =
-    `Le PER est toujours calculé au plafond maximum déductible pour la rémunération affichée (10 % × rémunération + 15 % × fraction entre 1 et 8 PASS). Au point optimal (curseur à 100 %), l'écart au budget est proche de 0. En déplaçant le curseur, la rémunération varie et le PER se recalcule automatiquement à son nouveau plafond — l'écart au budget peut alors devenir positif (économie) ou négatif (dépassement).`;
+  document.getElementById('rubric-optim-note').textContent =
+    `Budget fixe = coût société actuel du salarié (${fmt(budgetCible)}). Le PER Madelin est par défaut à son plafond max recalculé sur la rémunération affichée (10 % × rémunération + 15 % × fraction entre 1 et 8 PASS) ; si tu le réduis manuellement, le budget non utilisé n'est pas reporté sur la rémunération — c'est une économie nette. La rémunération de gérance ne peut pas descendre sous le net salarié actuel (${fmt(netSalRef)}).`;
 }
 
-
-// ── Tabs (rubriques) ─────────────────────────────────────────────────────────
-function showRubric(id, btn){
-  document.querySelectorAll('.rubric-panel').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.rubric-tab').forEach(b=>b.classList.remove('active'));
-  document.getElementById('rubric-'+id).classList.add('active');
-  btn.classList.add('active');
-}
 
 // ── Reset ────────────────────────────────────────────────────────────────────
 function resetForm(){
@@ -1236,7 +1251,9 @@ async function patchDocxFontTable(buffer){
 }
 
 // ── Init ─────────────────────────────────────────────────────────────────────
+const OPTIM_SLIDER_IDS = ['slider_optim_pct','slider_optim_remu','slider_optim_per'];
 document.querySelectorAll('input,select').forEach(el=>{
+  if(OPTIM_SLIDER_IDS.includes(el.id)) return; // gérés spécifiquement dans renderRubricOptim
   if(el.type!=='file') el.addEventListener('input', compute);
   if(el.tagName==='SELECT') el.addEventListener('change', compute);
 });
