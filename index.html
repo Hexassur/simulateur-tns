@@ -1311,6 +1311,105 @@ async function exportWord(){
   setBtnState(false, '📄 Générer synthèse Word');
 }
 
+// ── Calcul indépendant des 4 positions d'optimisation (Zéro / MIX 100% / REM / PER) ──────────
+// Réplique la logique de renderRubricOptim mais sans dépendre de l'état des curseurs DOM
+// (window._lastTouched, sliders...), pour pouvoir être appelée à tout moment (ex. à l'export
+// Word) et renvoyer les 4 positions simultanément, calculées à partir des mêmes données du
+// dossier au même instant (cohérence garantie entre les 4 blocs).
+function calculerPositionsOptim(d){
+  const { net_sal, cout_sal_reel, caisse_ro, sante_ind, madelin_prev } = d;
+  const budgetCible = cout_sal_reel;
+  const netSalRef = net_sal !== null ? net_sal : 0;
+
+  // ── Point d'équilibre (100%) : rémunération max telle que remu + charges_oblig(remu) + santé +
+  // prévoyance + PER_max(remu) = budgetCible. Dichotomie (stable malgré les sauts de tranche).
+  function coutTotalPour(remu){
+    const perMaxage = plafonds(remu).ret_max;
+    const c = chargesGerance(remu, sante_ind, madelin_prev, perMaxage, caisse_ro);
+    return remu + c.charges + sante_ind + madelin_prev + perMaxage;
+  }
+  let lo = 0, hi = Math.max(budgetCible, netSalRef*1.5, 1);
+  for(let i=0;i<60;i++){
+    const mid = (lo+hi)/2;
+    if(coutTotalPour(mid) < budgetCible) lo = mid; else hi = mid;
+  }
+  let remuOpt = (lo+hi)/2;
+  if(remuOpt < netSalRef) remuOpt = netSalRef;
+
+  // ── Point de bascule budgétaire SANS PER : rémunération max telle que
+  // remu + charges_oblig(remu) + santé + prévoyance = budgetCible (PER non compté).
+  function coutSansPerPour(remu){
+    const c = chargesGerance(remu, sante_ind, madelin_prev, 0, caisse_ro);
+    return remu + c.charges + sante_ind + madelin_prev;
+  }
+  let loB = 0, hiB = Math.max(budgetCible, netSalRef*1.5, 1);
+  for(let i=0;i<60;i++){
+    const mid = (loB+hiB)/2;
+    if(coutSansPerPour(mid) < budgetCible) loB = mid; else hiB = mid;
+  }
+  let remuMaxBudget = (loB+hiB)/2;
+  if(remuMaxBudget < netSalRef) remuMaxBudget = netSalRef;
+
+  // ── OPTI PER : convergence itérative rémunération <-> plafond PER (même logique que le bouton
+  // btn_fav_per de l'interface).
+  let perCible = plafonds(netSalRef).ret_max;
+  for(let i=0;i<25;i++){
+    function coutPourRemu(remu){
+      const c = chargesGerance(remu, sante_ind, madelin_prev, perCible, caisse_ro);
+      return remu + c.charges + sante_ind + madelin_prev + perCible;
+    }
+    let remuResult;
+    if(coutPourRemu(netSalRef) <= budgetCible){
+      if(coutPourRemu(remuOpt*1.5) <= budgetCible){
+        remuResult = remuOpt*1.5;
+      } else {
+        let loR = netSalRef, hiR = remuOpt*1.5;
+        for(let j=0;j<50;j++){ const mid=(loR+hiR)/2; if(coutPourRemu(mid)<budgetCible) loR=mid; else hiR=mid; }
+        remuResult = (loR+hiR)/2;
+      }
+    } else {
+      remuResult = netSalRef;
+    }
+    const nouveauPlafond = plafonds(remuResult).ret_max;
+    if(Math.abs(nouveauPlafond - perCible) < 0.01){ perCible = nouveauPlafond; break; }
+    perCible = nouveauPlafond;
+  }
+  // Rémunération finale cohérente avec le PER cible convergé
+  function coutPourRemuFinal(remu){
+    const c = chargesGerance(remu, sante_ind, madelin_prev, perCible, caisse_ro);
+    return remu + c.charges + sante_ind + madelin_prev + perCible;
+  }
+  let remuPositionPer;
+  if(coutPourRemuFinal(netSalRef) <= budgetCible){
+    if(coutPourRemuFinal(remuOpt*1.5) <= budgetCible){
+      remuPositionPer = remuOpt*1.5;
+    } else {
+      let loR = netSalRef, hiR = remuOpt*1.5;
+      for(let j=0;j<50;j++){ const mid=(loR+hiR)/2; if(coutPourRemuFinal(mid)<budgetCible) loR=mid; else hiR=mid; }
+      remuPositionPer = (loR+hiR)/2;
+    }
+  } else {
+    remuPositionPer = netSalRef;
+  }
+
+  // ── Construit le détail chiffré pour une position (rémunération + PER donnés)
+  function detailPosition(remu, per){
+    const c = chargesGerance(remu, sante_ind, madelin_prev, per, caisse_ro);
+    const cout_total = remu + c.charges + sante_ind + madelin_prev + per;
+    const diff_net = net_sal !== null ? remu - net_sal : null;
+    const diff_cout = cout_total - cout_sal_reel;
+    const avantage = -diff_cout;
+    return { remu, per, charges:c.charges, taux:c.taux, cout_total, diff_net, diff_cout, avantage };
+  }
+
+  return {
+    zero: detailPosition(netSalRef, 0),
+    mix:  detailPosition(remuOpt, plafonds(remuOpt).ret_max),
+    rem:  detailPosition(remuMaxBudget, 0),
+    per:  detailPosition(remuPositionPer, perCible),
+  };
+}
+
 async function generateWord(){
   const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
           Header, Footer, AlignmentType, BorderStyle, WidthType, ShadingType,
@@ -1389,6 +1488,56 @@ async function generateWord(){
   }
 
   const d = R;
+  const optim4 = calculerPositionsOptim(d);
+
+  // ── Construit un bloc complet pour une position d'optimisation : titre + points clés + tableau
+  // comparatif (2 blocs Situation actuelle / Projection TNS) + bandeau verdict, charte Hexassur.
+  function blocPositionOptim(numero, titreSection, sousTitre, puces, position){
+    const avPositif = position.avantage >= -50;
+    const avAffiche = Math.abs(position.avantage) < 50 ? 0 : position.avantage;
+    const elements = [
+      TS(`${numero}. ${titreSection}`),
+      P(sousTitre,{bold:true,size:20,color:BLEU,spacing:{before:60,after:160}}),
+    ];
+    puces.forEach(txt => elements.push(P('• '+txt,{size:19,color:'333333',spacing:{before:40,after:40}})));
+    elements.push(new Paragraph({spacing:{before:160},children:[new TextRun({text:'',font:'Century Gothic'})]}));
+    elements.push(new Table({width:{size:9638,type:WidthType.DXA},columnWidths:[4819,4819],rows:[new TableRow({children:[
+      new TableCell({width:{size:4819,type:WidthType.DXA},
+        borders:{top:bfE(),bottom:bf(),left:bf(),right:bf()},
+        shading:{fill:GRIS,type:ShadingType.CLEAR},margins:{top:160,bottom:160,left:200,right:200},children:[
+          P('Situation actuelle',{bold:true,color:BLEU,size:22}),
+          P('Dirigeant salarié',{size:18,color:'555555'}),
+          new Paragraph({spacing:{before:100},children:[new TextRun({text:'',font:'Century Gothic'})]}),
+          P('Coût total réel société',{size:16,color:'555555'}),
+          P(fmt(d.cout_sal_reel),{bold:true,size:32,color:BLEU}),
+          P('Net fiscal : '+fmt(d.net_sal),{size:18,bold:true}),
+      ]}),
+      new TableCell({width:{size:4819,type:WidthType.DXA},
+        borders:{top:bfE(VERT),bottom:bf(),left:bf(),right:bf()},
+        shading:{fill:GRIS,type:ShadingType.CLEAR},margins:{top:160,bottom:160,left:200,right:200},children:[
+          P('Projection TNS',{bold:true,color:VERT,size:22}),
+          P('Gérant majoritaire SARL/EURL',{size:18,color:'555555'}),
+          new Paragraph({spacing:{before:100},children:[new TextRun({text:'',font:'Century Gothic'})]}),
+          P('Coût total réel société',{size:16,color:'555555'}),
+          P(fmt(position.cout_total),{bold:true,size:32,color:VERT}),
+          P('Net fiscal projeté : '+fmt(position.remu),{size:18,bold:true}),
+      ]}),
+    ]})]}));
+    elements.push(new Paragraph({spacing:{before:160},children:[new TextRun({text:'',font:'Century Gothic'})]}));
+    elements.push(new Table({width:{size:9638,type:WidthType.DXA},columnWidths:[9638],rows:[new TableRow({children:[
+      new TableCell({width:{size:9638,type:WidthType.DXA},
+        shading:{fill:avPositif?VERT_C:ROUGE_C,type:ShadingType.CLEAR},
+        borders:{top:bfE(avPositif?VERT:ROUGE),bottom:bf(),left:bf(),right:bf()},
+        margins:{top:160,bottom:160,left:240,right:240},children:[
+          P(avPositif
+            ?`Le statut TNS génère une économie annuelle de ${fmt(avAffiche)} à protection comparable.`
+            :`Le statut salarié reste moins coûteux de ${fmt(-avAffiche)} à protection comparable.`,
+            {bold:true,size:22,color:avPositif?VERT:ROUGE}),
+          P(`Net ${position.diff_net>=0?'supérieur':'inférieur'} de ${fmt(Math.abs(position.diff_net))} en statut TNS.`,
+            {size:18,color:'333333'}),
+      ]})]})]}));
+    return elements;
+  }
 
   const doc2 = new Document({
     sections:[{
@@ -1410,7 +1559,8 @@ async function generateWord(){
               new TableCell({width:{size:6638,type:WidthType.DXA},borders:BN(),children:[
                 new Paragraph({spacing:{before:0,after:0},alignment:AlignmentType.RIGHT,children:[new TextRun({text:`Dossier : ${d.nom||'Dirigeant'}`,size:18,bold:true,color:BLEU,font:'Century Gothic'})]}),
                 new Paragraph({spacing:{before:20,after:0},alignment:AlignmentType.RIGHT,children:[new TextRun({text:`Date : ${today}`,size:16,color:'555555',font:'Century Gothic'})]}),
-                new Paragraph({spacing:{before:20,after:0},alignment:AlignmentType.RIGHT,children:[new TextRun({text:'Étude comparative statuts',size:16,color:'555555',font:'Century Gothic',italics:true})]}),
+                new Paragraph({spacing:{before:20,after:0},alignment:AlignmentType.RIGHT,children:[new TextRun({text:'Étude comparative',size:16,color:'555555',font:'Century Gothic',italics:true})]}),
+                new Paragraph({spacing:{before:0,after:0},alignment:AlignmentType.RIGHT,children:[new TextRun({text:'Cotisations TNS',size:16,color:'555555',font:'Century Gothic',italics:true})]}),
               ]}),
             ]})]
           }),
@@ -1456,113 +1606,100 @@ async function generateWord(){
           })]
         }),
         // Bloc infos dossier superposé en bas de la page de garde (zone basse, sur fond bleu)
-        new Paragraph({spacing:{before:9000},children:[new TextRun({text:'',font:'Century Gothic'})]}),
+        new Paragraph({spacing:{before:12000},children:[new TextRun({text:'',font:'Century Gothic'})]}),
         new Table({width:{size:7000,type:WidthType.DXA},columnWidths:[7000],alignment:AlignmentType.CENTER,rows:[new TableRow({children:[
           new TableCell({width:{size:7000,type:WidthType.DXA},borders:BN(),
             margins:{top:0,bottom:0,left:600,right:0},children:[
               new Paragraph({children:[new TextRun({text:'ÉTUDE COMPARATIVE',bold:true,size:32,color:BLANC,font:'Century Gothic'})]}),
-              new Paragraph({spacing:{before:80},children:[new TextRun({text:'Statut Dirigeant Salarié → TNS',size:22,color:BLEU_C,font:'Century Gothic'})]}),
-              new Paragraph({spacing:{before:240},children:[new TextRun({text:`Dirigeant analysé : `,size:18,color:'AABBC2',font:'Century Gothic'}),new TextRun({text:d.nom||'—',size:18,bold:true,color:BLANC,font:'Century Gothic'})]}),
+              new Paragraph({spacing:{before:80},children:[new TextRun({text:'Cotisations TNS',size:22,color:BLEU_C,font:'Century Gothic'})]}),
+              new Paragraph({spacing:{before:240},children:[new TextRun({text:`Dirigeant : `,size:18,color:'AABBC2',font:'Century Gothic'}),new TextRun({text:d.nom||'—',size:18,bold:true,color:BLANC,font:'Century Gothic'})]}),
               new Paragraph({children:[new TextRun({text:`Date de l'étude : `,size:18,color:'AABBC2',font:'Century Gothic'}),new TextRun({text:today,size:18,bold:true,color:BLANC,font:'Century Gothic'})]}),
             ]})]})]}),
 
         new Paragraph({children:[new PageBreak()]}),
 
-        // 1. SYNTHÈSE
-        TS('1. Synthèse décisionnelle'),
-        new Paragraph({spacing:{before:120},children:[new TextRun({text:'',font:'Century Gothic'})]}),
-        new Table({width:{size:9638,type:WidthType.DXA},columnWidths:[4819,4819],rows:[new TableRow({children:[
-          new TableCell({width:{size:4819,type:WidthType.DXA},
-            borders:{top:bfE(),bottom:bf(),left:bf(),right:bf()},
-            shading:{fill:GRIS,type:ShadingType.CLEAR},margins:{top:160,bottom:160,left:200,right:200},children:[
-              P('Situation actuelle',{bold:true,color:BLEU,size:22}),
-              P('Dirigeant salarié',{size:18,color:'555555'}),
-              new Paragraph({spacing:{before:100},children:[new TextRun({text:'',font:'Century Gothic'})]}),
-              P('Coût total réel société',{size:16,color:'555555'}),
-              P(fmt(d.cout_sal_reel),{bold:true,size:32,color:BLEU}),
-              P('Net fiscal : '+fmt(d.net_sal),{size:18,bold:true}),
-          ]}),
-          new TableCell({width:{size:4819,type:WidthType.DXA},
-            borders:{top:bfE(VERT),bottom:bf(),left:bf(),right:bf()},
-            shading:{fill:GRIS,type:ShadingType.CLEAR},margins:{top:160,bottom:160,left:200,right:200},children:[
-              P('Projection TNS',{bold:true,color:VERT,size:22}),
-              P('Gérant majoritaire SARL/EURL',{size:18,color:'555555'}),
-              new Paragraph({spacing:{before:100},children:[new TextRun({text:'',font:'Century Gothic'})]}),
-              P('Coût total réel société',{size:16,color:'555555'}),
-              P(fmt(d.cout_tns_reel),{bold:true,size:32,color:VERT}),
-              P('Net fiscal projeté : '+fmt(d.tns_net),{size:18,bold:true}),
-          ]}),
-        ]})]})
-        ,
-        new Paragraph({spacing:{before:160},children:[new TextRun({text:'',font:'Century Gothic'})]}),
-        new Table({width:{size:9638,type:WidthType.DXA},columnWidths:[9638],rows:[new TableRow({children:[
-          new TableCell({width:{size:9638,type:WidthType.DXA},
-            shading:{fill:d.avantage>=0?VERT_C:ROUGE_C,type:ShadingType.CLEAR},
-            borders:{top:bfE(d.avantage>=0?VERT:ROUGE),bottom:bf(),left:bf(),right:bf()},
-            margins:{top:160,bottom:160,left:240,right:240},children:[
-              P(d.avantage>=0
-                ?`Le statut TNS génère une économie annuelle de ${fmt(d.avantage)} à protection comparable.`
-                :`Le statut salarié reste moins coûteux de ${fmt(-d.avantage)} à protection comparable.`,
-                {bold:true,size:22,color:d.avantage>=0?VERT:ROUGE}),
-              P(`Net ${d.diff_net>=0?'supérieur':'inférieur'} de ${fmt(Math.abs(d.diff_net))} en statut TNS.`
-                +(d.madelin_total>0?` Les cotisations Madelin (${fmt(d.madelin_total)}) sont déductibles du résultat — avantage fiscal IR supplémentaire.`:''),
-                {size:18,color:'333333'}),
-          ]})]})]})
-        ,
+        // Mention dynamique de la caisse de retraite obligatoire, reprise dans chaque position
+        ...(() => {
+          const mentionRO = `Retraite du régime obligatoire incluse, via cotisations obligatoires Urssaf / Caisse Régime obligatoire, ${d.caisse_ro==='CIPAV'?'CIPAV':d.caisse_ro}.`;
+          const mensuel = (annuel) => fmt(Math.round(annuel/12));
 
-        // 2. CHARGES
-        new Paragraph({spacing:{before:320},children:[new TextRun({text:'',font:'Century Gothic'})]}),
-        TS('2. Détail comparatif des charges'),
-        new Paragraph({spacing:{before:120},children:[new TextRun({text:'',font:'Century Gothic'})]}),
-        new Table({width:{size:9638,type:WidthType.DXA},columnWidths:[4200,2400,2400,638],rows:[
-          new TableRow({children:[HC('Poste de charge',4200),HC('Salarié actuel',2400),HC('TNS projeté',2400),EmC(638)]}),
-          LT('Taux de charge appliqué ('+d.caisse_ro+')','—',d.taux_charge!==null?(d.taux_charge*100).toFixed(1)+' %':'—'),
-          new TableRow({children:[
-            C('COÛT TOTAL RÉEL SOCIÉTÉ',{w:4200,bold:true,bg:BLEU,color:BLANC,bc:BLEU}),
-            C(fmt(d.cout_sal_reel),{w:2400,bold:true,bg:BLEU,color:BLANC,align:AlignmentType.RIGHT,bc:BLEU}),
-            C(fmt(d.cout_tns_reel),{w:2400,bold:true,bg:BLEU,color:BLANC,align:AlignmentType.RIGHT,bc:BLEU}),
-            EmC(638)
-          ]}),
-          LT('COTISATIONS SUPPLÉMENTAIRES ET FACULTATIVES (INFO)','','',{bl:true,bg:BLEU_C}),
-          LT('Retraite supplémentaire (Art. 83 / PEROB)',(d.ret_supp||0)>0?fmt(d.ret_supp):'—',fmt(d.madelin_ret)),
-          LT('Épargne salariale PEI',(d.pei||0)>0?fmt(d.pei):'—','—'),
-          LT('Épargne retraite PERECO',(d.pereco||0)>0?fmt(d.pereco):'—','—'),
-        ]}),
-        new Paragraph({spacing:{before:80},children:[new TextRun({text:'',font:'Century Gothic'})]}),
-        N('Source données salarié : export Silae Expert. Cotisations TNS calculées via la table de référence cabinet (taux de charge par tranche de rémunération et par caisse).'),
+          // ── 1. OPTI Zéro — Approche budgétaire maximisée
+          const blocZero = blocPositionOptim(
+            1, 'Approche budgétaire maximisée', 'Approche budgétaire maximisée.',
+            [
+              `À rémunération nette équivalente, une économie budgétaire de ${fmt(optim4.zero.avantage)} / an,`,
+              'Santé et Prévoyance individuelles incluses,',
+              mentionRO,
+            ],
+            optim4.zero
+          );
 
-        // 3. PLAFOND PER
-        new Paragraph({spacing:{before:320},children:[new TextRun({text:'',font:'Century Gothic'})]}),
-        TS('3. PLAFOND Plan Épargne Retraite - PER Madelin (statut TNS projeté)'),
-        P(`Base : rémunération de gérance projetée = ${fmt(d.tns_net)} — PASS 2026 = 48 060 €`,{size:18,color:'555555',italic:true,spacing:{before:80,after:80}}),
-        new Table({width:{size:9638,type:WidthType.DXA},columnWidths:[3000,2000,2000,2000,638],rows:[
-          new TableRow({children:[HC('Contrat',3000),HC('Plafond max',2000),HC('Versement',2000),HC('Capacité restante',2000),EmC(638)]}),
-          new TableRow({children:[
-            C('PER / Madelin retraite',{w:3000}), C(fmt(d.pl.ret_max),{w:2000,align:AlignmentType.RIGHT}),
-            C(fmt(d.madelin_ret),{w:2000,align:AlignmentType.RIGHT}),
-            C(fmt(d.cap_ret),{w:2000,align:AlignmentType.RIGHT,bold:true,color:d.cap_ret>0?VERT:ROUGE}), EmC(638)]}),
-        ]}),
-        new Paragraph({spacing:{before:80},children:[new TextRun({text:'',font:'Century Gothic'})]}),
-        N('Formule : 10 % × BI + 15 % × (fraction BI entre 1 et 8 PASS). Déductibilité conditionnée au paiement des cotisations obligatoires sans retard.'),
+          // ── 2. OPTI MIX 100% — Optimisation maximale du ratio Rémunération & PER
+          const augMixAn = optim4.mix.diff_net||0;
+          const blocMix = blocPositionOptim(
+            2, 'Approche d\'optimisation maximale du ratio Rémunération & PER à budget constant',
+            'Approche d\'optimisation maximale du ratio Rémunération & PER à budget constant',
+            [
+              `Une rémunération nette augmentée de ${mensuel(augMixAn)} / mois (soit ${fmt(augMixAn)} annuel),`,
+              `Une capitalisation PER de ${fmt(optim4.mix.per)} par an,`,
+              'Santé et Prévoyance individuelles incluses (Déductible Madelin),',
+              mentionRO,
+            ],
+            optim4.mix
+          );
+
+          // ── 3. OPTI REM — Maximisation de la rémunération à budget constant
+          const augRemAn = optim4.rem.diff_net||0;
+          const blocRem = blocPositionOptim(
+            3, 'Approche de maximisation de la rémunération à budget constant',
+            'Approche de maximisation de la rémunération à budget constant',
+            [
+              `Une rémunération nette augmentée de ${mensuel(augRemAn)} / mois (soit ${fmt(augRemAn)} annuel),`,
+              'Santé et Prévoyance individuelles incluses (Déductible Madelin),',
+              mentionRO,
+              'Pas de capitalisation retraite complémentaire PER.',
+            ],
+            optim4.rem
+          );
+
+          // ── 4. OPTI PER — Maximisation de la capitalisation retraite complémentaire
+          const augPerAn = optim4.per.diff_net||0;
+          const blocPer = blocPositionOptim(
+            4, 'Approche de maximisation de la capitalisation retraite complémentaire',
+            'Approche de maximisation de la capitalisation retraite complémentaire',
+            [
+              `Une capitalisation PER maximisée de ${fmt(optim4.per.per)} par an,`,
+              `Une rémunération nette augmentée de ${mensuel(augPerAn)} / mois (soit ${fmt(augPerAn)} annuel),`,
+              'Santé et Prévoyance individuelles incluses (Déductible Madelin),',
+              mentionRO,
+            ],
+            optim4.per
+          );
+
+          return [
+            ...blocZero,
+            new Paragraph({children:[new PageBreak()]}),
+            ...blocMix,
+            new Paragraph({children:[new PageBreak()]}),
+            ...blocRem,
+            new Paragraph({children:[new PageBreak()]}),
+            ...blocPer,
+          ];
+        })(),
 
         // 4. MENTIONS
         new Paragraph({children:[new PageBreak()]}),
         TS('Mentions légales et avertissements'),
         new Paragraph({spacing:{before:120},children:[new TextRun({text:'',font:'Century Gothic'})]}),
-        P('Cette étude est établie à titre indicatif sur la base des taux et plafonds en vigueur en 2026 (PASS 2026 = 48 060 €). Elle ne constitue pas un conseil juridique ou fiscal.',{size:18,color:'444444'}),
-        new Paragraph({spacing:{before:80},children:[new TextRun({text:'',font:'Century Gothic'})]}),
-        P('Périmètre :',{bold:true,size:18}),
-        P('• Charges sociales uniquement — hors impôt sur le revenu.',{size:18,color:'444444'}),
-        P(`• Les cotisations Madelin (${fmt(d.madelin_total)}) sont déductibles du bénéfice imposable TNS — avantage fiscal non intégré ici.`,{size:18,color:'444444'}),
-        P('• La réforme de l\'assiette TNS (art. 18 loi 2023-1250) n\'est pas prise en compte.',{size:18,color:'444444'}),
-        new Paragraph({spacing:{before:160},children:[new TextRun({text:'',font:'Century Gothic'})]}),
-        new Table({width:{size:9638,type:WidthType.DXA},columnWidths:[4819,4819],rows:[new TableRow({children:[
-          new TableCell({width:{size:4819,type:WidthType.DXA},borders:BN(),children:[
-            P('_________________________________',{size:18}), P(d.nom||'Dirigeant',{bold:true,size:18}), P('Dirigeant',{size:16,color:'666666'})]}),
-          new TableCell({width:{size:4819,type:WidthType.DXA},borders:BN(),children:[
-            P('_________________________________',{size:18}), P('HEXASSUR',{bold:true,size:18}), P('Représenté par Virginie Pollet',{size:16,color:'666666'})]}),
-        ]})]})
-        ,
+        P('Cette étude est établie à titre indicatif sur la base des taux et plafonds en vigueur en 2026.',{size:18,color:'444444'}),
+        P('Cette étude est une aide à la décision, à la réflexion et aux arbitrages de rémunération TNS, capitalisation retraite et optimisation des budgets.',{size:18,color:'444444'}),
+        new Paragraph({spacing:{before:120},children:[new TextRun({text:'',font:'Century Gothic'})]}),
+        P('Ce document n\'est pas contractuel.',{size:18,color:'444444',bold:true}),
+        new Paragraph({spacing:{before:120},children:[new TextRun({text:'',font:'Century Gothic'})]}),
+        P('Les informations recueillies dans cette étude ne feront l\'objet d\'aucun autre usage, et seront exploitées à titre exclusif dans le cadre de cette étude.',{size:18,color:'444444'}),
+        new Paragraph({spacing:{before:120},children:[new TextRun({text:'',font:'Century Gothic'})]}),
+        P('Vos informations et données personnelles sont couvertes par le secret professionnel.',{size:18,color:'444444'}),
+        P('Les données collectées et traitées seront conservées pendant la durée du traitement et sans excéder les durées légales de conservation.',{size:18,color:'444444'}),
       ]
     }]
   });
