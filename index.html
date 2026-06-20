@@ -1021,11 +1021,16 @@ function renderRubricOptim(d){
   let remuCourante, perCourant;
 
   if(window._lastTouched === 'per'){
-    // Plafond PER théorique basé sur la rémunération affichée à l'instant (avant ajustement) :
-    // cohérent avec ce qui est déjà fait pour le bouton "Plafond max" du PER.
-    const remuAvant = parseFloat(elRemu.value) || remuMin;
-    const perMaxTheorique = plafonds(remuAvant).ret_max;
-    const perDemande = Math.max(0, Math.min(window._lastValue || 0, perMaxTheorique));
+    // window._lastValue porte déjà la valeur voulue par l'utilisateur (saisie manuelle, slider,
+    // ou — pour le bouton "OPTI PER" — un plafond déjà convergé en tenant compte du fait que la
+    // rémunération va elle-même bouger). On ne la re-clamp PAS ici sur le plafond théorique de
+    // l'ANCIENNE rémunération (avant ce calcul), sinon on annule la convergence déjà faite par le
+    // bouton et on retombe sur une valeur intermédiaire fausse (bug observé : il fallait cliquer
+    // deux fois pour atteindre le vrai plafond). Le seul garde-fou nécessaire ici est PER >= 0 ;
+    // le plafond légal réel sera de toute façon respecté plus loin via perMaxCourant (calculé sur
+    // remuCourante, la rémunération DÉFINITIVE), qui re-clampe perCourant si jamais on est encore
+    // au-dessus à ce moment-là.
+    const perDemande = Math.max(0, window._lastValue || 0);
 
     // Coût total pour une rémunération donnée, avec CE PER demandé inclus dans l'assiette élargie.
     function coutTotalPourRemu(remu){
