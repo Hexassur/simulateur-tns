@@ -1507,9 +1507,8 @@ async function generateWord(){
   const optim4 = calculerPositionsOptim(d);
 
   // ── Construit un bloc complet pour une position d'optimisation : titre + puces (avec segment
-  // clé en gras coloré) + tableau détaillé Situation actuelle / Projection TNS, reprenant
-  // fidèlement les données et libellés déjà affichés dans la rubrique Optimisation du simulateur
-  // HTML (cf. renderRubricOptim), charte graphique Hexassur.
+  // clé en gras coloré) + tableau comparatif "Items de comparaison" (4 colonnes : libellé /
+  // salarié actuel / TNS projeté / écart) + mention Madelin, charte graphique Hexassur.
   function blocPositionOptim(numero, titreSection, puces, position){
     const elements = [
       TS(`${numero}. ${titreSection}`),
@@ -1522,53 +1521,87 @@ async function generateWord(){
       const runs = [{text:'→ ',bold:false,color:BLEU}, ...segments];
       elements.push(PMixte(runs,{spacing:{before:50,after:50},defaultSize:19,defaultColor:'333333'}));
     });
-    elements.push(new Paragraph({spacing:{before:160},children:[new TextRun({text:'',font:'Century Gothic'})]}));
+    elements.push(new Paragraph({spacing:{before:140},children:[new TextRun({text:'',font:'Century Gothic'})]}));
 
-    // ── Tableau détaillé à 2 colonnes (Situation actuelle / Projection TNS)
+    // ── Tableau "Items de comparaison" à 4 colonnes ───────────────────────────────────────────
     const remuMensSal = d.net_sal!==null ? Math.round(d.net_sal/12) : null;
     const remuMensTns = Math.round(position.remu/12);
-    const ligneVide = () => new Paragraph({spacing:{before:60},children:[new TextRun({text:'',font:'Century Gothic'})]});
-    const ligneDetail = (label,valeur,opts={}) => {
-      const {italic=false,color='000000',bold=false}=opts;
-      return new Paragraph({spacing:{before:30,after:30},
-        children:[
-          new TextRun({text:label+' : ',size:18,color:'444444',font:'Century Gothic'}),
-          new TextRun({text:valeur,size:18,bold,color,italic,font:'Century Gothic'}),
-        ]});
-    };
+    const retraiteRO = Math.max(0, position.charges - position.sante_ind - position.madelin_prev - position.per);
+    const VERT_CLAIR = '6FCB95';
 
-    elements.push(new Table({width:{size:9638,type:WidthType.DXA},columnWidths:[4819,4819],rows:[new TableRow({children:[
-      new TableCell({width:{size:4819,type:WidthType.DXA},
-        borders:{top:bfE(),bottom:bf(),left:bf(),right:bf()},
-        shading:{fill:GRIS,type:ShadingType.CLEAR},margins:{top:160,bottom:160,left:200,right:200},children:[
-          P('Situation actuelle',{bold:true,color:BLEU,size:21}),
-          P(`Rémunération : ${remuMensSal!==null?fmt(remuMensSal):'—'} / mois`,{bold:true,color:BLEU,size:18,spacing:{before:20,after:0}}),
-          P('Dirigeant salarié',{size:17,color:'666666',spacing:{before:20,after:120}}),
-          ligneDetail('Salaire net',(d.net_sal!==null?fmt(d.net_sal):'—')+' (avant impôt)'),
-          ligneDetail('Charges totales salaires',fmt(d.cout_sal_reel)),
-          ligneDetail('dont santé collective','% selon CCN',{italic:true,color:'888888'}),
-          ligneDetail('dont prévoyance collective','% selon CCN',{italic:true,color:'888888'}),
-          ligneDetail('dont Retraite régime obligatoire','% selon CCN',{italic:true,color:'888888'}),
-          ligneVide(),
-          P('Coût total réel société',{size:16,color:'555555',spacing:{before:80,after:20}}),
-          P(fmt(d.cout_sal_reel),{bold:true,size:30,color:BLEU}),
+    // En-tête (4 colonnes), liseré rouge fin au-dessus géré via une bordure top sur la 1ère ligne
+    const W = [3400,2200,2200,1838]; // somme = 9638
+    function HC4(text,w,align=AlignmentType.CENTER){
+      return new TableCell({
+        width:{size:w,type:WidthType.DXA},
+        borders:{top:{style:BorderStyle.SINGLE,size:24,color:ROUGE},bottom:bf(BLEU),left:bf(BLEU),right:bf(BLEU)},
+        shading:{fill:BLEU,type:ShadingType.CLEAR},
+        margins:{top:120,bottom:100,left:120,right:120},
+        verticalAlign:VerticalAlign.CENTER,
+        children:[new Paragraph({alignment:align,
+          children:[new TextRun({text,bold:true,color:BLANC,size:18,font:'Century Gothic'})]})]
+      });
+    }
+    // Ligne de détail standard (4 colonnes)
+    function ligne4(label,vSal,vTns,vEcart,opts={}){
+      const {sousLigne=false,bg=BLANC,boldLabel=false}=opts;
+      const sizeL = sousLigne?17:19;
+      const colorL = sousLigne?'777777':BLEU;
+      return new TableRow({children:[
+        new TableCell({width:{size:W[0],type:WidthType.DXA},borders:Bs('DDDDDD'),shading:{fill:bg,type:ShadingType.CLEAR},
+          margins:{top:70,bottom:70,left:sousLigne?280:120,right:120},verticalAlign:VerticalAlign.CENTER,
+          children:[new Paragraph({children:[new TextRun({text:label,size:sizeL,color:colorL,bold:boldLabel,font:'Century Gothic'})]})]}),
+        new TableCell({width:{size:W[1],type:WidthType.DXA},borders:Bs('DDDDDD'),shading:{fill:bg,type:ShadingType.CLEAR},
+          margins:{top:70,bottom:70,left:120,right:120},verticalAlign:VerticalAlign.CENTER,
+          children:[new Paragraph({alignment:AlignmentType.RIGHT,children:[new TextRun({text:vSal,size:sizeL,
+            color:typeof vSal==='string'&&vSal.includes('%')?'999999':'333333',italics:typeof vSal==='string'&&vSal.includes('%'),font:'Century Gothic'})]})]}),
+        new TableCell({width:{size:W[2],type:WidthType.DXA},borders:Bs('DDDDDD'),shading:{fill:bg,type:ShadingType.CLEAR},
+          margins:{top:70,bottom:70,left:120,right:120},verticalAlign:VerticalAlign.CENTER,
+          children:[new Paragraph({alignment:AlignmentType.RIGHT,children:[new TextRun({text:vTns,size:sizeL,color:'333333',font:'Century Gothic'})]})]}),
+        new TableCell({width:{size:W[3],type:WidthType.DXA},borders:Bs('DDDDDD'),shading:{fill:bg,type:ShadingType.CLEAR},
+          margins:{top:70,bottom:70,left:120,right:120},verticalAlign:VerticalAlign.CENTER,
+          children:[new Paragraph({alignment:AlignmentType.RIGHT,children:[new TextRun({text:vEcart,size:sizeL,
+            color:vEcart==='—'?'BBBBBB':VERT,font:'Century Gothic'})]})]}),
+      ]});
+    }
+    // Ligne total (bandeau bleu marine, écart en vert clair)
+    function ligneTotal4(label,vSal,vTns,vEcart){
+      return new TableRow({children:[
+        new TableCell({width:{size:W[0],type:WidthType.DXA},borders:Bs(BLEU),shading:{fill:BLEU,type:ShadingType.CLEAR},
+          margins:{top:100,bottom:100,left:120,right:120},verticalAlign:VerticalAlign.CENTER,
+          children:[new Paragraph({children:[new TextRun({text:label,bold:true,size:19,color:BLANC,font:'Century Gothic'})]})]}),
+        new TableCell({width:{size:W[1],type:WidthType.DXA},borders:Bs(BLEU),shading:{fill:BLEU,type:ShadingType.CLEAR},
+          margins:{top:100,bottom:100,left:120,right:120},verticalAlign:VerticalAlign.CENTER,
+          children:[new Paragraph({alignment:AlignmentType.RIGHT,children:[new TextRun({text:vSal,bold:true,size:19,color:BLANC,font:'Century Gothic'})]})]}),
+        new TableCell({width:{size:W[2],type:WidthType.DXA},borders:Bs(BLEU),shading:{fill:BLEU,type:ShadingType.CLEAR},
+          margins:{top:100,bottom:100,left:120,right:120},verticalAlign:VerticalAlign.CENTER,
+          children:[new Paragraph({alignment:AlignmentType.RIGHT,children:[new TextRun({text:vTns,bold:true,size:19,color:BLANC,font:'Century Gothic'})]})]}),
+        new TableCell({width:{size:W[3],type:WidthType.DXA},borders:Bs(BLEU),shading:{fill:BLEU,type:ShadingType.CLEAR},
+          margins:{top:100,bottom:100,left:120,right:120},verticalAlign:VerticalAlign.CENTER,
+          children:[new Paragraph({alignment:AlignmentType.RIGHT,children:[new TextRun({text:vEcart,bold:true,size:19,color:VERT_CLAIR,font:'Century Gothic'})]})]}),
+      ]});
+    }
+
+    const ecartCharges = position.charges - d.cout_sal_reel; // charges totales gérance - charges totales salaires
+    let ecartTotal = position.cout_total - d.cout_sal_reel;
+    if(Math.abs(ecartTotal) < 5) ecartTotal = 0;
+
+    elements.push(new Table({width:{size:9638,type:WidthType.DXA},columnWidths:W,rows:[
+      new TableRow({children:[
+        HC4('Items de comparaison',W[0],AlignmentType.LEFT),
+        HC4('Salarié actuel',W[1]),
+        HC4('TNS projeté',W[2]),
+        HC4('Écart',W[3]),
       ]}),
-      new TableCell({width:{size:4819,type:WidthType.DXA},
-        borders:{top:bfE(VERT),bottom:bf(),left:bf(),right:bf()},
-        shading:{fill:GRIS,type:ShadingType.CLEAR},margins:{top:160,bottom:160,left:200,right:200},children:[
-          P('Projection TNS',{bold:true,color:VERT,size:21}),
-          P(`Rémunération : ${fmt(remuMensTns)} / mois`,{bold:true,color:VERT,size:18,spacing:{before:20,after:0}}),
-          P(`Gérant majoritaire - ${d.caisse_ro}`,{size:17,color:'666666',spacing:{before:20,after:120}}),
-          ligneDetail('Rémunération de gérance',fmt(position.remu)+' (avant impôt)'),
-          ligneDetail('Charges totales gérance',fmt(position.charges)),
-          ligneDetail('Coût Santé (Madelin)',fmt(position.sante_ind)),
-          ligneDetail('Coût Prévoyance (Madelin)',fmt(position.madelin_prev)),
-          ligneDetail('Coût Plan Épargne Retraite - PER (Madelin)',fmt(position.per)),
-          ligneVide(),
-          P('Coût total réel société',{size:16,color:'555555',spacing:{before:80,after:20}}),
-          P(fmt(position.cout_total),{bold:true,size:30,color:VERT}),
-      ]}),
-    ]})]}));
+      ligne4('Rémunération / mois',fmt(remuMensSal),fmt(remuMensTns),'—'),
+      ligne4('Charges totales',fmt(d.cout_sal_reel),fmt(position.charges),fmt(ecartCharges),{bg:GRIS,boldLabel:false}),
+      ligne4('Santé','% selon CCN',fmt(position.sante_ind),'—',{sousLigne:true}),
+      ligne4('Prévoyance','% selon CCN',fmt(position.madelin_prev),'—',{sousLigne:true,bg:GRIS}),
+      ligne4('Retraite régime obligatoire','% selon CCN',fmt(retraiteRO),'—',{sousLigne:true}),
+      ligne4('PER (Madelin)','—',fmt(position.per),'—',{sousLigne:true,bg:GRIS}),
+      ligneTotal4('Coût total réel société',fmt(d.cout_sal_reel),fmt(position.cout_total),fmt(ecartTotal)),
+    ]}));
+    elements.push(N('Les dépenses Santé, Prévoyance et PER pour le TNS sont éligibles Madelin et déduites du résultat.'));
     return elements;
   }
 
@@ -1709,11 +1742,11 @@ async function generateWord(){
 
           return [
             ...blocZero,
-            new Paragraph({children:[new PageBreak()]}),
+            new Paragraph({spacing:{before:280},children:[new TextRun({text:'',font:'Century Gothic'})]}),
             ...blocMix,
             new Paragraph({children:[new PageBreak()]}),
             ...blocRem,
-            new Paragraph({children:[new PageBreak()]}),
+            new Paragraph({spacing:{before:280},children:[new TextRun({text:'',font:'Century Gothic'})]}),
             ...blocPer,
           ];
         })(),
