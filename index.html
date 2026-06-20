@@ -1411,6 +1411,71 @@ function calculerPositionsOptim(d){
   };
 }
 
+// ── Calcul des tranches de PER à budget constant : pour chaque palier, la rémunération de
+// gérance s'ajuste pour que le coût total reste exactement égal au budget cible (même logique
+// que le curseur Optimisation / la position OPTI MIX, mais PER fixé par palier plutôt que
+// recherché). Pas de versement mensuel progressif : 50 €/mois (600 €/an) en premier essai ; si
+// le nombre de paliers entiers dépasse 12 lignes, on repasse à 100 €/mois (1200 €/an) ; si
+// toujours trop de lignes, 150 €/mois (1800 €/an). On reste ainsi toujours sur des montants de
+// versement programmé ronds et réalistes, plutôt que sur un sous-échantillonnage arbitraire.
+function calculerTranchesPER(d, perMax){
+  const { net_sal, cout_sal_reel, caisse_ro, sante_ind, madelin_prev } = d;
+  const budgetCible = cout_sal_reel;
+  const netSalRef = net_sal !== null ? net_sal : 0;
+  const MAX_LIGNES = 12;
+
+  function remuPourPer(perValue){
+    function coutTotalPourRemu(remu){
+      const c = chargesGerance(remu, sante_ind, madelin_prev, perValue, caisse_ro);
+      return remu + c.charges + sante_ind + madelin_prev + perValue;
+    }
+    // Garde-fou : si même au plancher (netSalRef) le budget est déjà dépassé, ce palier de PER
+    // n'est pas absorbable à budget constant (ne devrait pas arriver puisque perMax = point
+    // d'équilibre exact, mais protège contre un cas limite plutôt que de renvoyer un résultat
+    // silencieusement faux).
+    if(coutTotalPourRemu(netSalRef) > budgetCible) return netSalRef;
+    let lo = netSalRef, hi = Math.max(budgetCible, netSalRef*1.5, 1);
+    for(let i=0;i<60;i++){
+      const mid = (lo+hi)/2;
+      if(coutTotalPourRemu(mid) < budgetCible) lo = mid; else hi = mid;
+    }
+    return (lo+hi)/2;
+  }
+
+  // Construit la liste de paliers entiers pour un pas mensuel donné (en €/mois), plus la borne
+  // finale perMax (toujours incluse même si elle ne tombe pas pile sur un multiple du pas, car
+  // c'est la borne réglementaire du plafond à ne pas dépasser).
+  function construirePaliers(pasMensuel){
+    const pasAnnuel = pasMensuel * 12;
+    const nbPaliersEntiers = Math.max(0, Math.floor(perMax / pasAnnuel));
+    const paliers = [];
+    for(let i=0; i<=nbPaliersEntiers; i++) paliers.push(i*pasAnnuel);
+    if(paliers.length===0 || paliers[paliers.length-1] < perMax) paliers.push(perMax);
+    return paliers;
+  }
+
+  // Essaie des pas croissants par paliers de 50 € (50, 100, 150, 200 €/mois...) et retient le
+  // premier qui tient en 12 lignes ou moins. Garde-fou à 2000 €/mois : au-delà, même un dossier
+  // exceptionnel ne justifie plus d'augmenter le pas (la table de référence des versements
+  // programmés perdrait son sens) — on s'arrête là quel que soit le nombre de lignes obtenu.
+  const PAS_PLAFOND = 2000; // €/mois
+  let pasRetenu = 50;
+  let paliersPER = construirePaliers(pasRetenu);
+  while(paliersPER.length>MAX_LIGNES && pasRetenu<PAS_PLAFOND){
+    pasRetenu += 50;
+    paliersPER = construirePaliers(pasRetenu);
+  }
+
+  const lignes = paliersPER.map(per => {
+    const remu = remuPourPer(per);
+    const c = chargesGerance(remu, sante_ind, madelin_prev, per, caisse_ro);
+    const cout_total = remu + c.charges + sante_ind + madelin_prev + per;
+    return { per, remu, cout_total, mensuel: Math.round(per/12) };
+  });
+  lignes.pasMensuel = pasRetenu; // exposé en propriété pour l'affichage dynamique des mentions
+  return lignes;
+}
+
 async function generateWord(){
   const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
           Header, Footer, AlignmentType, BorderStyle, WidthType, ShadingType,
@@ -1605,6 +1670,73 @@ async function generateWord(){
     return elements;
   }
 
+  // ── Construit le bloc "tranches de PER" : titre + puces + tableau des paliers de versement
+  // PER (50 €/mois, 100 €/mois...) de 0 € jusqu'au plafond du point d'équilibre, à budget
+  // constant (la rémunération de gérance s'ajuste à chaque palier).
+  function blocTranchesPER(numero, titreSection, puces, tranches, perMax){
+    const elements = [
+      TS(`${numero}. ${titreSection}`),
+      new Paragraph({spacing:{before:60},children:[new TextRun({text:'',font:'Century Gothic'})]}),
+    ];
+    puces.forEach(p => {
+      const segments = (Array.isArray(p) ? p : [p]).map(s => typeof s === 'string' ? {text:s} : s);
+      const runs = [{text:'→ ',bold:false,color:BLEU}, ...segments];
+      elements.push(PMixte(runs,{spacing:{before:50,after:50},defaultSize:19,defaultColor:'333333'}));
+    });
+    elements.push(new Paragraph({spacing:{before:140},children:[new TextRun({text:'',font:'Century Gothic'})]}));
+
+    const W = [2800,2400,2400,2038]; // somme = 9638
+    function HCT(text,w,align=AlignmentType.CENTER){
+      return new TableCell({
+        width:{size:w,type:WidthType.DXA},
+        borders:{top:{style:BorderStyle.SINGLE,size:24,color:ROUGE},bottom:bf(BLEU),left:bf(BLEU),right:bf(BLEU)},
+        shading:{fill:BLEU,type:ShadingType.CLEAR},
+        margins:{top:120,bottom:100,left:120,right:120},
+        verticalAlign:VerticalAlign.CENTER,
+        children:[new Paragraph({alignment:align,
+          children:[new TextRun({text,bold:true,color:BLANC,size:18,font:'Century Gothic'})]})]
+      });
+    }
+    function ligneTranche(mensuel,per,remuMens,coutTotal,opts={}){
+      const {bg=BLANC,isLast=false}=opts;
+      const cellStyle = (text,align,opts2={}) => {
+        const {bold=false,color='333333'}=opts2;
+        return new TableCell({width:{size:opts2.w,type:WidthType.DXA},
+          borders:isLast?Bs(BLEU):Bs('DDDDDD'),
+          shading:{fill:isLast?BLEU:bg,type:ShadingType.CLEAR},
+          margins:{top:isLast?100:70,bottom:isLast?100:70,left:120,right:120},
+          verticalAlign:VerticalAlign.CENTER,
+          children:[new Paragraph({alignment:align,
+            children:[new TextRun({text,bold:bold||isLast,size:isLast?19:18,
+              color:isLast?(opts2.lastColor||BLANC):color,font:'Century Gothic'})]})]});
+      };
+      return new TableRow({children:[
+        cellStyle(mensuel,AlignmentType.LEFT,{w:W[0]}),
+        cellStyle(per,AlignmentType.RIGHT,{w:W[1],color:isLast?VERT_CLAIR_TXT:VERT,bold:isLast,lastColor:VERT_CLAIR_TXT}),
+        cellStyle(remuMens,AlignmentType.RIGHT,{w:W[2]}),
+        cellStyle(coutTotal,AlignmentType.RIGHT,{w:W[3],color:'999999'}),
+      ]});
+    }
+    const VERT_CLAIR_TXT = '6FCB95';
+
+    const rows = [new TableRow({children:[
+      HCT('Versement PER',W[0],AlignmentType.LEFT),
+      HCT('PER / an',W[1]),
+      HCT('Rémunération / mois',W[2]),
+      HCT('Coût total société',W[3]),
+    ]})];
+    tranches.forEach((t,i) => {
+      const isLast = i===tranches.length-1;
+      const label = isLast ? 'Plafond max (100 % équilibre)' : `${t.mensuel} € / mois`;
+      rows.push(ligneTranche(label,fmt(t.per),fmt(Math.round(t.remu/12)),fmt(t.cout_total),
+        {bg:i%2===1?GRIS:BLANC,isLast}));
+    });
+    elements.push(new Table({width:{size:9638,type:WidthType.DXA},columnWidths:W,rows}));
+    elements.push(N(`Versements par paliers de ${tranches.pasMensuel} €/mois, à budget société constant. Rémunération nette ajustée à chaque palier.`));
+    elements.push(N('Les dépenses Santé, Prévoyance et PER pour le TNS sont éligibles Madelin et déduites du résultat.'));
+    return elements;
+  }
+
   const doc2 = new Document({
     sections:[{
       properties:{
@@ -1727,17 +1859,19 @@ async function generateWord(){
             optim4.rem
           );
 
-          // ── 4. OPTI PER — Maximisation de la capitalisation retraite complémentaire
-          const augPerAn = optim4.per.diff_net||0;
-          const blocPer = blocPositionOptim(
-            4, 'Approche de maximisation de la capitalisation retraite complémentaire',
+          // ── 4. Tranches de PER — paliers de versement programmé à budget constant
+          const perMaxEquilibre = optim4.mix.per;
+          const tranchesPER = calculerTranchesPER(d, perMaxEquilibre);
+          const blocPer = blocTranchesPER(
+            4, 'Approche progressive de la capitalisation retraite complémentaire',
             [
-              ['Une ',{text:`capitalisation PER maximisée de ${fmt(optim4.per.per)} par an`,bold:true,color:VERT},','],
-              ['Une ',{text:`rémunération nette augmentée de ${mensuel(augPerAn)} / mois`,bold:true,color:VERT},` (soit ${fmt(augPerAn)} annuel),`],
+              ['Versements PER programmés par paliers de ',{text:`${tranchesPER.pasMensuel} € / mois`,bold:true,color:VERT},`, de 0 € jusqu'au plafond du point d'équilibre,`],
+              'À chaque palier, la rémunération de gérance est ajustée pour rester à budget société constant,',
               'Santé et Prévoyance individuelles incluses (Déductible Madelin),',
               mentionRO+'.',
             ],
-            optim4.per
+            tranchesPER,
+            perMaxEquilibre
           );
 
           return [
@@ -1746,7 +1880,7 @@ async function generateWord(){
             ...blocMix,
             new Paragraph({children:[new PageBreak()]}),
             ...blocRem,
-            new Paragraph({spacing:{before:280},children:[new TextRun({text:'',font:'Century Gothic'})]}),
+            new Paragraph({children:[new PageBreak()]}),
             ...blocPer,
           ];
         })(),
