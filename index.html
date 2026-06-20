@@ -1571,10 +1571,9 @@ async function generateWord(){
     }]
   });
 
-  const rawBuffer = await Packer.toBuffer(doc2);
-  const finalBuffer = await patchDocxFontTable(rawBuffer);
-  const blob = new Blob([finalBuffer], {type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
-  const url = URL.createObjectURL(blob);
+  const rawBlob = await Packer.toBlob(doc2);
+  const finalBlob = await patchDocxFontTable(rawBlob);
+  const url = URL.createObjectURL(finalBlob);
   const a = document.createElement('a');
   a.href = url;
   a.download = `Synthese_TNS_Salarie_${(d.nom||'dirigeant').replace(/\s+/g,'_')}.docx`;
@@ -1585,24 +1584,26 @@ async function generateWord(){
 // Correctif : docx.js (v8.5.0) génère parfois fontTable.xml sans le référencer
 // dans word/_rels/document.xml.rels, ce qui rend le document invalide pour
 // certains lecteurs stricts. On répare cette relation manquante après coup.
-async function patchDocxFontTable(buffer){
-  if(typeof JSZip === 'undefined') return buffer; // JSZip indisponible : on renvoie le fichier tel quel
+async function patchDocxFontTable(blob){
+  const docxType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  if(typeof JSZip === 'undefined') return blob; // JSZip indisponible : on renvoie le fichier tel quel
   try{
-    const zip = await JSZip.loadAsync(buffer);
+    const zip = await JSZip.loadAsync(blob);
     const relsPath = 'word/_rels/document.xml.rels';
     const relsFile = zip.file(relsPath);
-    if(!relsFile) return buffer;
+    if(!relsFile) return blob;
     let relsContent = await relsFile.async('string');
-    if(relsContent.includes('fontTable')) return buffer; // déjà référencé, rien à faire
+    if(relsContent.includes('fontTable')) return blob; // déjà référencé, rien à faire
     const ids = [...relsContent.matchAll(/Id="rId(\d+)"/g)].map(m => parseInt(m[1]));
     const nextId = (ids.length ? Math.max(...ids) : 0) + 1;
     const newRel = `<Relationship Id="rId${nextId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable" Target="fontTable.xml"/>`;
     relsContent = relsContent.replace('</Relationships>', newRel + '</Relationships>');
     zip.file(relsPath, relsContent);
-    return await zip.generateAsync({type:'uint8array'});
+    const patchedBlob = await zip.generateAsync({type:'blob', mimeType: docxType});
+    return patchedBlob;
   }catch(e){
     console.warn('Correctif fontTable non appliqué :', e);
-    return buffer; // en cas d'échec du patch, on renvoie le fichier original plutôt que de bloquer l'export
+    return blob; // en cas d'échec du patch, on renvoie le fichier original plutôt que de bloquer l'export
   }
 }
 
