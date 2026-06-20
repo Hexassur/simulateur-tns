@@ -308,7 +308,13 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
       <div class="verdict" id="verdict-optim"></div>
 
       <div class="slider-block">
-        <label for="slider_optim_pct" style="font-size:12px;font-weight:600;color:#444">Curseur Optimisation (% du point d'équilibre TNS)</label>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <label for="slider_optim_pct" style="font-size:12px;font-weight:600;color:#444">Curseur Optimisation (% du point d'équilibre TNS)</label>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input type="number" id="input_optim_pct" step="0.1" style="width:80px;height:28px;padding:0 6px;border:1px solid #CBD5E0;border-radius:6px;font-size:13px;text-align:right">
+            <span style="font-size:12px;color:#888">%</span>
+          </div>
+        </div>
         <input type="range" id="slider_optim_pct" min="0" max="150" value="0" step="0.1" style="width:100%;margin:10px 0">
         <div style="display:flex;justify-content:space-between;font-size:11px;color:#888">
           <span id="optim_pct_min_label">— % (net salarié actuel)</span>
@@ -318,7 +324,13 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
       </div>
 
       <div class="slider-block">
-        <label for="slider_optim_remu" style="font-size:12px;font-weight:600;color:#444">Curseur Rémunération de gérance (€/an)</label>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <label for="slider_optim_remu" style="font-size:12px;font-weight:600;color:#444">Curseur Rémunération de gérance (€/an)</label>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input type="number" id="input_optim_remu" step="100" style="width:100px;height:28px;padding:0 6px;border:1px solid #CBD5E0;border-radius:6px;font-size:13px;text-align:right">
+            <span style="font-size:12px;color:#888">€</span>
+          </div>
+        </div>
         <input type="range" id="slider_optim_remu" min="0" max="100000" value="0" step="100" style="width:100%;margin:10px 0">
         <div style="display:flex;justify-content:space-between;font-size:11px;color:#888">
           <span id="optim_remu_min_label">— €</span>
@@ -328,7 +340,13 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
       </div>
 
       <div class="slider-block">
-        <label for="slider_optim_per" style="font-size:12px;font-weight:600;color:#444">Curseur PER Madelin (€/an) — plafond recalculé selon la rémunération ci-dessus</label>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <label for="slider_optim_per" style="font-size:12px;font-weight:600;color:#444">Curseur PER Madelin (€/an) — plafond recalculé selon la rémunération ci-dessus</label>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input type="number" id="input_optim_per" step="50" style="width:100px;height:28px;padding:0 6px;border:1px solid #CBD5E0;border-radius:6px;font-size:13px;text-align:right">
+            <span style="font-size:12px;color:#888">€</span>
+          </div>
+        </div>
         <input type="range" id="slider_optim_per" min="0" max="10000" value="0" step="50" style="width:100%;margin:10px 0">
         <div style="display:flex;justify-content:space-between;font-size:11px;color:#888">
           <span>0 € (aucun PER)</span>
@@ -806,35 +824,50 @@ function renderRubricOptim(d){
   const elPct  = document.getElementById('slider_optim_pct');
   const elRemu = document.getElementById('slider_optim_remu');
   const elPer  = document.getElementById('slider_optim_per');
+  const inPct  = document.getElementById('input_optim_pct');
+  const inRemu = document.getElementById('input_optim_remu');
+  const inPer  = document.getElementById('input_optim_per');
 
-  // ── Initialisation des sliders (une seule fois) : bornes + position de départ = plancher
+  // ── Initialisation des sliders + inputs (une seule fois) : bornes + position de départ = plancher
   if(!elPct.dataset.init){
     elPct.min = 0; elPct.max = pctMax; // on garde une échelle 0-150 stable ; le plancher est appliqué par clamp, pas par min=
-    elPct.value = pctMin;
-    elRemu.min = Math.round(remuMin); elRemu.max = Math.round(remuMax); elRemu.value = Math.round(remuMin);
+    elPct.value = pctMin; inPct.value = pctMin.toFixed(1);
+    elRemu.min = Math.round(remuMin); elRemu.max = Math.round(remuMax); elRemu.value = Math.round(remuMin); inRemu.value = Math.round(remuMin);
     elPct.dataset.init = '1'; elRemu.dataset.init = '1';
 
     elPct.addEventListener('input', function(){
-      window._lastTouched = 'pct';
+      window._lastTouched = 'pct'; window._lastValue = parseFloat(this.value);
+      compute();
+    });
+    inPct.addEventListener('change', function(){
+      window._lastTouched = 'pct'; window._lastValue = parseFloat(this.value) || 0;
       compute();
     });
     elRemu.addEventListener('input', function(){
-      window._lastTouched = 'remu';
+      window._lastTouched = 'remu'; window._lastValue = parseFloat(this.value);
+      compute();
+    });
+    inRemu.addEventListener('change', function(){
+      window._lastTouched = 'remu'; window._lastValue = parseFloat(this.value) || 0;
       compute();
     });
     elPer.addEventListener('input', function(){
-      window._lastTouched = 'per';
+      window._lastTouched = 'per'; window._lastValue = parseFloat(this.value);
+      compute();
+    });
+    inPer.addEventListener('change', function(){
+      window._lastTouched = 'per'; window._lastValue = parseFloat(this.value) || 0;
       compute();
     });
   }
 
-  // ── Détermine la rémunération courante selon le dernier curseur manipulé
+  // ── Détermine la rémunération courante selon le dernier curseur/champ manipulé
   // (par défaut, au premier calcul, on part du plancher = net salarié)
   let remuCourante;
   if(window._lastTouched === 'remu'){
-    remuCourante = parseFloat(elRemu.value);
+    remuCourante = window._lastValue;
   } else if(window._lastTouched === 'pct'){
-    remuCourante = remuOpt * (parseFloat(elPct.value)/100);
+    remuCourante = remuOpt * (window._lastValue/100);
   } else {
     remuCourante = parseFloat(elRemu.value) || remuMin;
   }
@@ -843,11 +876,11 @@ function renderRubricOptim(d){
 
   const pctCourant = remuOpt>0 ? (remuCourante/remuOpt*100) : 0;
 
-  // Resynchroniser les deux curseurs Rémunération / Optimisation sur la même valeur
+  // Resynchroniser les deux curseurs Rémunération / Optimisation + leurs champs de saisie
   elPct.min = 0; elPct.max = pctMax;
-  elPct.value = pctCourant;
+  elPct.value = pctCourant; inPct.value = Math.round(pctCourant*10)/10;
   elRemu.min = Math.round(remuMin); elRemu.max = Math.round(remuMax);
-  elRemu.value = Math.round(remuCourante);
+  elRemu.value = Math.round(remuCourante); inRemu.value = Math.round(remuCourante);
 
   document.getElementById('optim_pct_min_label').textContent = `${pctMin.toFixed(0)} % (net salarié actuel)`;
   document.getElementById('optim_pct_label').textContent =
@@ -859,21 +892,22 @@ function renderRubricOptim(d){
   // ── Plafond PER recalculé sur la rémunération courante
   const perMaxCourant = plafonds(remuCourante).ret_max;
   elPer.max = Math.round(perMaxCourant);
+  inPer.max = Math.round(perMaxCourant);
 
   // PER : démarre à 0 € au tout premier chargement (rémunération = net salarié actuel).
   // Ensuite, il suit automatiquement le plafond max chaque fois que ce n'est pas lui qui vient
   // d'être manipulé (Optimisation/Rémunération priment et recalent le PER au max disponible).
-  // Si l'utilisateur vient de toucher le curseur PER lui-même, sa valeur choisie est conservée
+  // Si l'utilisateur vient de toucher le curseur/champ PER lui-même, sa valeur choisie est conservée
   // (simplement clampée au nouveau plafond, qui ne peut pas changer dans ce cas précis).
   let perCourant;
   if(window._lastTouched === null){
     perCourant = 0;
   } else if(window._lastTouched === 'per'){
-    perCourant = Math.min(parseFloat(elPer.value) || 0, perMaxCourant);
+    perCourant = Math.max(0, Math.min(window._lastValue || 0, perMaxCourant));
   } else {
     perCourant = perMaxCourant;
   }
-  elPer.value = Math.round(perCourant);
+  elPer.value = Math.round(perCourant); inPer.value = Math.round(perCourant);
   document.getElementById('optim_per_label').textContent = fmt(perCourant);
   document.getElementById('optim_per_max_label').textContent = fmt(perMaxCourant) + ' (plafond max)';
 
@@ -1251,7 +1285,7 @@ async function patchDocxFontTable(buffer){
 }
 
 // ── Init ─────────────────────────────────────────────────────────────────────
-const OPTIM_SLIDER_IDS = ['slider_optim_pct','slider_optim_remu','slider_optim_per'];
+const OPTIM_SLIDER_IDS = ['slider_optim_pct','slider_optim_remu','slider_optim_per','input_optim_pct','input_optim_remu','input_optim_per'];
 document.querySelectorAll('input,select').forEach(el=>{
   if(OPTIM_SLIDER_IDS.includes(el.id)) return; // gérés spécifiquement dans renderRubricOptim
   if(el.type!=='file') el.addEventListener('input', compute);
