@@ -1577,16 +1577,16 @@ async function generateWord(){
   function blocPositionOptim(numero, titreSection, puces, position){
     const elements = [
       TS(`${numero}. ${titreSection}`),
-      new Paragraph({spacing:{before:60},children:[new TextRun({text:'',font:'Century Gothic'})]}),
+      new Paragraph({spacing:{before:40},children:[new TextRun({text:'',font:'Century Gothic'})]}),
     ];
     // Chaque puce est soit une chaîne simple, soit un tableau de segments où chaque élément est
     // une chaîne brute (texte neutre) ou un objet {text,bold,color} (texte mis en valeur).
     puces.forEach(p => {
       const segments = (Array.isArray(p) ? p : [p]).map(s => typeof s === 'string' ? {text:s} : s);
       const runs = [{text:'→ ',bold:false,color:BLEU}, ...segments];
-      elements.push(PMixte(runs,{spacing:{before:50,after:50},defaultSize:19,defaultColor:'333333'}));
+      elements.push(PMixte(runs,{spacing:{before:30,after:30},defaultSize:18,defaultColor:'333333'}));
     });
-    elements.push(new Paragraph({spacing:{before:140},children:[new TextRun({text:'',font:'Century Gothic'})]}));
+    elements.push(new Paragraph({spacing:{before:100},children:[new TextRun({text:'',font:'Century Gothic'})]}));
 
     // ── Tableau "Items de comparaison" à 4 colonnes ───────────────────────────────────────────
     const remuMensSal = d.net_sal!==null ? Math.round(d.net_sal/12) : null;
@@ -1601,30 +1601,30 @@ async function generateWord(){
         width:{size:w,type:WidthType.DXA},
         borders:{top:{style:BorderStyle.SINGLE,size:24,color:ROUGE},bottom:bf(BLEU),left:bf(BLEU),right:bf(BLEU)},
         shading:{fill:BLEU,type:ShadingType.CLEAR},
-        margins:{top:120,bottom:100,left:120,right:120},
+        margins:{top:80,bottom:70,left:120,right:120},
         verticalAlign:VerticalAlign.CENTER,
         children:[new Paragraph({alignment:align,
-          children:[new TextRun({text,bold:true,color:BLANC,size:18,font:'Century Gothic'})]})]
+          children:[new TextRun({text,bold:true,color:BLANC,size:17,font:'Century Gothic'})]})]
       });
     }
     // Ligne de détail standard (4 colonnes)
     function ligne4(label,vSal,vTns,vEcart,opts={}){
       const {sousLigne=false,bg=BLANC,boldLabel=false}=opts;
-      const sizeL = sousLigne?17:19;
+      const sizeL = sousLigne?16:18;
       const colorL = sousLigne?'777777':BLEU;
       return new TableRow({children:[
         new TableCell({width:{size:W[0],type:WidthType.DXA},borders:Bs('DDDDDD'),shading:{fill:bg,type:ShadingType.CLEAR},
-          margins:{top:70,bottom:70,left:sousLigne?280:120,right:120},verticalAlign:VerticalAlign.CENTER,
+          margins:{top:40,bottom:40,left:sousLigne?280:120,right:120},verticalAlign:VerticalAlign.CENTER,
           children:[new Paragraph({children:[new TextRun({text:label,size:sizeL,color:colorL,bold:boldLabel,font:'Century Gothic'})]})]}),
         new TableCell({width:{size:W[1],type:WidthType.DXA},borders:Bs('DDDDDD'),shading:{fill:bg,type:ShadingType.CLEAR},
-          margins:{top:70,bottom:70,left:120,right:120},verticalAlign:VerticalAlign.CENTER,
+          margins:{top:40,bottom:40,left:120,right:120},verticalAlign:VerticalAlign.CENTER,
           children:[new Paragraph({alignment:AlignmentType.RIGHT,children:[new TextRun({text:vSal,size:sizeL,
             color:typeof vSal==='string'&&vSal.includes('%')?'999999':'333333',italics:typeof vSal==='string'&&vSal.includes('%'),font:'Century Gothic'})]})]}),
         new TableCell({width:{size:W[2],type:WidthType.DXA},borders:Bs('DDDDDD'),shading:{fill:bg,type:ShadingType.CLEAR},
-          margins:{top:70,bottom:70,left:120,right:120},verticalAlign:VerticalAlign.CENTER,
+          margins:{top:40,bottom:40,left:120,right:120},verticalAlign:VerticalAlign.CENTER,
           children:[new Paragraph({alignment:AlignmentType.RIGHT,children:[new TextRun({text:vTns,size:sizeL,color:'333333',font:'Century Gothic'})]})]}),
         new TableCell({width:{size:W[3],type:WidthType.DXA},borders:Bs('DDDDDD'),shading:{fill:bg,type:ShadingType.CLEAR},
-          margins:{top:70,bottom:70,left:120,right:120},verticalAlign:VerticalAlign.CENTER,
+          margins:{top:40,bottom:40,left:120,right:120},verticalAlign:VerticalAlign.CENTER,
           children:[new Paragraph({alignment:AlignmentType.RIGHT,children:[new TextRun({text:vEcart,size:sizeL,
             color:vEcart==='—'?'BBBBBB':VERT,font:'Century Gothic'})]})]}),
       ]});
@@ -1633,17 +1633,17 @@ async function generateWord(){
     function ligneTotal4(label,vSal,vTns,vEcart){
       return new TableRow({children:[
         new TableCell({width:{size:W[0],type:WidthType.DXA},borders:Bs(BLEU),shading:{fill:BLEU,type:ShadingType.CLEAR},
-          margins:{top:100,bottom:100,left:120,right:120},verticalAlign:VerticalAlign.CENTER,
-          children:[new Paragraph({children:[new TextRun({text:label,bold:true,size:19,color:BLANC,font:'Century Gothic'})]})]}),
+          margins:{top:70,bottom:70,left:120,right:120},verticalAlign:VerticalAlign.CENTER,
+          children:[new Paragraph({children:[new TextRun({text:label,bold:true,size:18,color:BLANC,font:'Century Gothic'})]})]}),
         new TableCell({width:{size:W[1],type:WidthType.DXA},borders:Bs(BLEU),shading:{fill:BLEU,type:ShadingType.CLEAR},
-          margins:{top:100,bottom:100,left:120,right:120},verticalAlign:VerticalAlign.CENTER,
-          children:[new Paragraph({alignment:AlignmentType.RIGHT,children:[new TextRun({text:vSal,bold:true,size:19,color:BLANC,font:'Century Gothic'})]})]}),
+          margins:{top:70,bottom:70,left:120,right:120},verticalAlign:VerticalAlign.CENTER,
+          children:[new Paragraph({alignment:AlignmentType.RIGHT,children:[new TextRun({text:vSal,bold:true,size:18,color:BLANC,font:'Century Gothic'})]})]}),
         new TableCell({width:{size:W[2],type:WidthType.DXA},borders:Bs(BLEU),shading:{fill:BLEU,type:ShadingType.CLEAR},
-          margins:{top:100,bottom:100,left:120,right:120},verticalAlign:VerticalAlign.CENTER,
-          children:[new Paragraph({alignment:AlignmentType.RIGHT,children:[new TextRun({text:vTns,bold:true,size:19,color:BLANC,font:'Century Gothic'})]})]}),
+          margins:{top:70,bottom:70,left:120,right:120},verticalAlign:VerticalAlign.CENTER,
+          children:[new Paragraph({alignment:AlignmentType.RIGHT,children:[new TextRun({text:vTns,bold:true,size:18,color:BLANC,font:'Century Gothic'})]})]}),
         new TableCell({width:{size:W[3],type:WidthType.DXA},borders:Bs(BLEU),shading:{fill:BLEU,type:ShadingType.CLEAR},
-          margins:{top:100,bottom:100,left:120,right:120},verticalAlign:VerticalAlign.CENTER,
-          children:[new Paragraph({alignment:AlignmentType.RIGHT,children:[new TextRun({text:vEcart,bold:true,size:19,color:VERT_CLAIR,font:'Century Gothic'})]})]}),
+          margins:{top:70,bottom:70,left:120,right:120},verticalAlign:VerticalAlign.CENTER,
+          children:[new Paragraph({alignment:AlignmentType.RIGHT,children:[new TextRun({text:vEcart,bold:true,size:18,color:VERT_CLAIR,font:'Century Gothic'})]})]}),
       ]});
     }
 
@@ -1676,14 +1676,14 @@ async function generateWord(){
   function blocTranchesPER(numero, titreSection, puces, tranches, perMax){
     const elements = [
       TS(`${numero}. ${titreSection}`),
-      new Paragraph({spacing:{before:60},children:[new TextRun({text:'',font:'Century Gothic'})]}),
+      new Paragraph({spacing:{before:40},children:[new TextRun({text:'',font:'Century Gothic'})]}),
     ];
     puces.forEach(p => {
       const segments = (Array.isArray(p) ? p : [p]).map(s => typeof s === 'string' ? {text:s} : s);
       const runs = [{text:'→ ',bold:false,color:BLEU}, ...segments];
-      elements.push(PMixte(runs,{spacing:{before:50,after:50},defaultSize:19,defaultColor:'333333'}));
+      elements.push(PMixte(runs,{spacing:{before:30,after:30},defaultSize:18,defaultColor:'333333'}));
     });
-    elements.push(new Paragraph({spacing:{before:140},children:[new TextRun({text:'',font:'Century Gothic'})]}));
+    elements.push(new Paragraph({spacing:{before:100},children:[new TextRun({text:'',font:'Century Gothic'})]}));
 
     const W = [2800,2400,2400,2038]; // somme = 9638
     function HCT(text,w,align=AlignmentType.CENTER){
@@ -1691,10 +1691,10 @@ async function generateWord(){
         width:{size:w,type:WidthType.DXA},
         borders:{top:{style:BorderStyle.SINGLE,size:24,color:ROUGE},bottom:bf(BLEU),left:bf(BLEU),right:bf(BLEU)},
         shading:{fill:BLEU,type:ShadingType.CLEAR},
-        margins:{top:120,bottom:100,left:120,right:120},
+        margins:{top:80,bottom:70,left:120,right:120},
         verticalAlign:VerticalAlign.CENTER,
         children:[new Paragraph({alignment:align,
-          children:[new TextRun({text,bold:true,color:BLANC,size:18,font:'Century Gothic'})]})]
+          children:[new TextRun({text,bold:true,color:BLANC,size:17,font:'Century Gothic'})]})]
       });
     }
     function ligneTranche(mensuel,per,remuMens,coutTotal,opts={}){
@@ -1704,10 +1704,10 @@ async function generateWord(){
         return new TableCell({width:{size:opts2.w,type:WidthType.DXA},
           borders:isLast?Bs(BLEU):Bs('DDDDDD'),
           shading:{fill:isLast?BLEU:bg,type:ShadingType.CLEAR},
-          margins:{top:isLast?100:70,bottom:isLast?100:70,left:120,right:120},
+          margins:{top:isLast?70:40,bottom:isLast?70:40,left:120,right:120},
           verticalAlign:VerticalAlign.CENTER,
           children:[new Paragraph({alignment:align,
-            children:[new TextRun({text,bold:bold||isLast,size:isLast?19:18,
+            children:[new TextRun({text,bold:bold||isLast,size:isLast?18:17,
               color:isLast?(opts2.lastColor||BLANC):color,font:'Century Gothic'})]})]});
       };
       return new TableRow({children:[
@@ -1732,8 +1732,7 @@ async function generateWord(){
         {bg:i%2===1?GRIS:BLANC,isLast}));
     });
     elements.push(new Table({width:{size:9638,type:WidthType.DXA},columnWidths:W,rows}));
-    elements.push(N(`Versements par paliers de ${tranches.pasMensuel} €/mois, à budget société constant. Rémunération nette ajustée à chaque palier.`));
-    elements.push(N('Les dépenses Santé, Prévoyance et PER pour le TNS sont éligibles Madelin et déduites du résultat.'));
+    elements.push(N(`Versements par paliers de ${tranches.pasMensuel} €/mois, à budget société constant. Rémunération nette ajustée à chaque palier. Dépenses Santé, Prévoyance et PER éligibles Madelin, déduites du résultat.`));
     return elements;
   }
 
@@ -1833,23 +1832,10 @@ async function generateWord(){
             optim4.zero
           );
 
-          // ── 2. OPTI MIX 100% — Optimisation maximale du ratio Rémunération & PER
-          const augMixAn = optim4.mix.diff_net||0;
-          const blocMix = blocPositionOptim(
-            2, 'Approche d\'optimisation maximale du ratio Rémunération & PER à budget constant',
-            [
-              ['Une ',{text:`rémunération nette augmentée de ${mensuel(augMixAn)} / mois`,bold:true,color:VERT},` (soit ${fmt(augMixAn)} annuel),`],
-              ['Une ',{text:`capitalisation PER de ${fmt(optim4.mix.per)} par an`,bold:true,color:VERT},','],
-              'Santé et Prévoyance individuelles incluses (Déductible Madelin),',
-              mentionRO+'.',
-            ],
-            optim4.mix
-          );
-
-          // ── 3. OPTI REM — Maximisation de la rémunération à budget constant
+          // ── 2. OPTI REM — Maximisation de la rémunération à budget constant
           const augRemAn = optim4.rem.diff_net||0;
           const blocRem = blocPositionOptim(
-            3, 'Approche de maximisation de la rémunération à budget constant',
+            2, 'Approche de maximisation de la rémunération à budget constant',
             [
               ['Une ',{text:`rémunération nette augmentée de ${mensuel(augRemAn)} / mois`,bold:true,color:VERT},` (soit ${fmt(augRemAn)} annuel),`],
               'Santé et Prévoyance individuelles incluses (Déductible Madelin),',
@@ -1859,11 +1845,24 @@ async function generateWord(){
             optim4.rem
           );
 
-          // ── 4. Tranches de PER — paliers de versement programmé à budget constant
+          // ── 3. OPTI MIX 100% — Optimisation maximale du ratio Rémunération & PER
+          const augMixAn = optim4.mix.diff_net||0;
+          const blocMix = blocPositionOptim(
+            3, 'Approche d\'optimisation maximale du ratio Rémunération & PER à budget constant',
+            [
+              ['Une ',{text:`rémunération nette augmentée de ${mensuel(augMixAn)} / mois`,bold:true,color:VERT},` (soit ${fmt(augMixAn)} annuel),`],
+              ['Une ',{text:`capitalisation PER de ${fmt(optim4.mix.per)} par an`,bold:true,color:VERT},','],
+              'Santé et Prévoyance individuelles incluses (Déductible Madelin),',
+              mentionRO+'.',
+            ],
+            optim4.mix
+          );
+
+          // ── 3 bis. Tranches de PER — paliers de versement programmé à budget constant
           const perMaxEquilibre = optim4.mix.per;
           const tranchesPER = calculerTranchesPER(d, perMaxEquilibre);
           const blocPer = blocTranchesPER(
-            4, 'Approche progressive de la capitalisation retraite complémentaire',
+            '3 bis', 'Approche progressive de la capitalisation retraite complémentaire',
             [
               ['Versements PER programmés par paliers de ',{text:`${tranchesPER.pasMensuel} € / mois`,bold:true,color:VERT},`, de 0 € jusqu'au plafond du point d'équilibre,`],
               'À chaque palier, la rémunération de gérance est ajustée pour rester à budget société constant,',
@@ -1877,10 +1876,10 @@ async function generateWord(){
           return [
             ...blocZero,
             new Paragraph({spacing:{before:280},children:[new TextRun({text:'',font:'Century Gothic'})]}),
-            ...blocMix,
-            new Paragraph({children:[new PageBreak()]}),
             ...blocRem,
             new Paragraph({children:[new PageBreak()]}),
+            ...blocMix,
+            new Paragraph({spacing:{before:240},children:[new TextRun({text:'',font:'Century Gothic'})]}),
             ...blocPer,
           ];
         })(),
