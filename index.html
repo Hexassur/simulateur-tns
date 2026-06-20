@@ -195,7 +195,13 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
 
   <!-- IMPORT -->
   <div class="card">
-    <div class="card-title">📂 Import Silae Expert — Détail des cotisations annuelles</div>
+    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+      <span>📂 Import Silae Expert — Détail des cotisations annuelles</span>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-secondary" onclick="resetForm()">🔄 Réinitialiser</button>
+        <button class="btn btn-primary" id="btn-export-top" onclick="exportWord()">📄 Générer synthèse Word</button>
+      </div>
+    </div>
     <div class="import-zone" id="drop-zone">
       <input type="file" id="file-input" accept=".xlsx,.xls">
       <div class="iz-icon">📊</div>
@@ -325,7 +331,7 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
   <!-- EXPORT BAR -->
   <div class="export-bar">
     <button class="btn btn-secondary" onclick="resetForm()">🔄 Réinitialiser</button>
-    <button class="btn btn-primary" id="btn-export" onclick="exportWord()">📄 Exporter la synthèse Word</button>
+    <button class="btn btn-primary" id="btn-export" onclick="exportWord()">📄 Générer synthèse Word</button>
   </div>
 
 
@@ -362,7 +368,7 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
           <div style="display:flex;align-items:center;gap:6px">
             <button type="button" id="btn_min_remu" title="Rémunération minimale (net salarié actuel)" style="height:28px;width:110px;padding:0 8px;border:1px solid #CBD5E0;border-radius:6px;background:#fff;color:#082C38;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center">⭐ REM min</button>
-            <label for="slider_optim_remu" style="font-size:12px;font-weight:600;color:#444">Maximisation Rémunération (€/an)</label>
+            <label for="slider_optim_remu" style="font-size:12px;font-weight:600;color:#444">Rémunération TNS (€/an)</label>
           </div>
           <div style="display:flex;align-items:center;gap:6px">
             <button type="button" id="btn_fav_remu" title="Rémunération maximale sans dépasser le budget (PER à 0 €)" style="height:28px;width:110px;padding:0 8px;border:1px solid #CBD5E0;border-radius:6px;background:#fff;color:#082C38;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center">⭐ OPTI REM</button>
@@ -382,7 +388,7 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
           <div style="display:flex;align-items:center;gap:6px">
             <button type="button" id="btn_min_per" title="PER à 0 €" style="height:28px;width:110px;padding:0 8px;border:1px solid #CBD5E0;border-radius:6px;background:#fff;color:#082C38;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center">⭐ PER min</button>
-            <label for="slider_optim_per" style="font-size:12px;font-weight:600;color:#444">Maximisation PER (€/an)</label>
+            <label for="slider_optim_per" style="font-size:12px;font-weight:600;color:#444">Plan Épargne Retraite - PER (€/an)</label>
           </div>
           <div style="display:flex;align-items:center;gap:6px">
             <button type="button" id="btn_fav_per" title="PER au plafond maximum déductible" style="height:28px;width:110px;padding:0 8px;border:1px solid #CBD5E0;border-radius:6px;background:#fff;color:#082C38;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center">⭐ OPTI PER</button>
@@ -390,7 +396,7 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
             <span style="font-size:12px;color:#888">€</span>
           </div>
         </div>
-        <input type="range" id="slider_optim_per" min="0" max="10000" value="0" step="50" style="width:100%;margin:10px 0">
+        <input type="range" id="slider_optim_per" min="0" max="10000" value="0" step="10" style="width:100%;margin:10px 0">
         <div style="display:flex;justify-content:space-between;font-size:11px;color:#888">
           <span>0 € (aucun PER)</span>
           <span id="optim_per_label" style="font-weight:600;color:#082C38">— €</span>
@@ -401,6 +407,12 @@ body{font-family:Arial,sans-serif;background:#F4F6F8;color:#222;font-size:14px}
       <div class="comp" id="rubric-optim-cards"></div>
       <div class="note" id="rubric-optim-note"></div>
     </div>
+  </div>
+
+  <!-- EXPORT BAR BAS DE PAGE (centré) -->
+  <div class="export-bar" style="justify-content:center">
+    <button class="btn btn-secondary" onclick="resetForm()">🔄 Réinitialiser</button>
+    <button class="btn btn-primary" id="btn-export-bottom" onclick="exportWord()">📄 Générer synthèse Word</button>
   </div>
 
 </div>
@@ -779,8 +791,8 @@ function compute(){
       <div class="met"><div class="ml">Net TNS projeté</div><div class="mv">${fmt(remuTns)}</div><div class="ms ${diffNet!==null?(diffNet>=0?'green':'red'):''}">${diffNet!==null?(diffNet>=0?'+':'')+fmt(diffNet):'vs salarié : import Silae requis'}</div></div>
       <div class="met"><div class="ml">Coût total salarié</div><div class="mv">${fmt(coutSalRef)}</div><div class="ms">social + contrats</div></div>
       <div class="met"><div class="ml">Coût total TNS</div><div class="mv">${fmt(coutTotalTns)}</div><div class="ms">SSI + contrats indiv.</div></div>
-      <div class="met"><div class="ml">${av>=0?'Économie TNS':'Surcoût TNS'}</div>
-        <div class="mv ${av>=0?'green':'red'}">${fmt(Math.abs(av))}</div>
+      <div class="met"><div class="ml">${av>=-50?'Économie TNS':'Surcoût TNS'}</div>
+        <div class="mv ${av>=-50?'green':'red'}">${fmt(Math.abs(av))}</div>
         <div class="ms">par an vs salarié</div></div>`;
 
     // Marge de rémunération mensuelle possible (hors PER) : recherche par dichotomie de la
@@ -815,10 +827,15 @@ function compute(){
     const margeMensuelleAvecPer = netSalRef!==null ? Math.max(0, (remuOptPer - netSalRef) / 12) : 0;
 
     const vEl = document.getElementById(verdictId);
-    vEl.className = 'verdict ' + (av>=0?'ok':'ko');
+    // Tolérance de 50 € (cohérente avec celle déjà utilisée pour la couleur de l'écart au budget
+    // dans le tableau) : un résidu d'arrondi de quelques euros au point d'équilibre exact ne doit
+    // pas faire basculer le verdict vers "le statut salarié reste moins coûteux" alors qu'on est en
+    // réalité exactement à l'équilibre (ex. via le bouton OPTI PER, censé tomber sur 0 € d'écart).
+    const avPositif = av >= -50;
+    vEl.className = 'verdict ' + (avPositif?'ok':'ko');
     vEl.innerHTML = `
-      <div class="vt">${av>=0?'✅ Le statut TNS est plus avantageux sur la base des hypothèses de travail retenues':'⚠️ Le statut salarié reste moins coûteux sur la base des hypothèses de travail retenues'}</div>
-      <div class="vs">${av>=0
+      <div class="vt">${avPositif?'✅ Le statut TNS est plus avantageux sur la base des hypothèses de travail retenues':'⚠️ Le statut salarié reste moins coûteux sur la base des hypothèses de travail retenues'}</div>
+      <div class="vs">${avPositif
         ? `Économie annuelle de <strong>${fmt(av)}</strong> avec le statut TNS (contrats individuels inclus) à rémunération constante.`
         : `Surcoût de <strong>${fmt(-av)}</strong> avec le statut TNS à rémunération constante.`}
         ${madelinTotal>0?` Les cotisations Madelin (${fmt(madelinTotal)}) sont déductibles du résultat.`:''}<br>
@@ -991,7 +1008,7 @@ function renderRubricOptim(d){
           remuResult = ctx.remuMin;
         }
         const nouveauPlafond = plafonds(remuResult).ret_max;
-        if(Math.abs(nouveauPlafond - perCible) < 1) { perCible = nouveauPlafond; break; }
+        if(Math.abs(nouveauPlafond - perCible) < 0.01) { perCible = nouveauPlafond; break; }
         perCible = nouveauPlafond;
       }
       window._lastTouched = 'per'; window._lastValue = perCible;
@@ -1032,18 +1049,28 @@ function renderRubricOptim(d){
     // au-dessus à ce moment-là.
     const perDemande = Math.max(0, window._lastValue || 0);
 
-    // Coût total pour une rémunération donnée, avec CE PER demandé inclus dans l'assiette élargie.
-    function coutTotalPourRemu(remu){
-      const c = chargesGerance(remu, sante_ind, madelin_prev, perDemande, caisse_ro);
-      return remu + c.charges + sante_ind + madelin_prev + perDemande;
-    }
+    // PER au point d'équilibre (100%, budget exactement respecté) : c'est la vraie frontière entre
+    // "dans le budget" et "hors budget" — PAS le test "même le plancher dépasse-t-il déjà le budget".
+    // Sans ce repère, augmenter le PER au-delà de ce point cherchait une rémunération plus BASSE pour
+    // rester dans le budget (solution mathématiquement valide mais contre-intuitive et incohérente
+    // avec la décision du client de dépasser son budget pour capitaliser davantage). Au-delà de ce
+    // point, la rémunération doit suivre vers le HAUT pour rester cohérente avec le PER demandé,
+    // sans plus chercher à revenir dans le budget.
+    const perOpt = plafonds(remuOpt).ret_max;
 
-    if(coutTotalPourRemu(remuMin) <= budgetCible){
-      // Le plancher absorbe déjà ce PER sans dépasser le budget : on cherche la rémunération
-      // exacte (peut être > remuMin) telle que le coût total tombe pile sur le budget — mais sans
-      // jamais descendre sous remuMin, qui reste la limite absolue.
+    if(perDemande <= perOpt){
+      // Dans la zone "budget respecté" (PER demandé ≤ PER du point d'équilibre) : on cherche la
+      // rémunération (entre remuMin et remuMax) telle que le coût total avec ce PER tombe pile sur
+      // le budget — comportement normal, dans le budget.
+      function coutTotalPourRemu(remu){
+        const c = chargesGerance(remu, sante_ind, madelin_prev, perDemande, caisse_ro);
+        return remu + c.charges + sante_ind + madelin_prev + perDemande;
+      }
       if(coutTotalPourRemu(remuMax) <= budgetCible){
         remuCourante = remuMax; // cas limite : même au plafond haut, ça ne dépasse pas
+      } else if(coutTotalPourRemu(remuMin) > budgetCible){
+        remuCourante = remuMin; // cas limite : le plancher dépasse déjà (situation improbable ici
+                                 // puisque perDemande ≤ perOpt, mais gardé par sécurité)
       } else {
         let loR = remuMin, hiR = remuMax;
         for(let i=0;i<60;i++){
@@ -1054,23 +1081,20 @@ function renderRubricOptim(d){
       }
       perCourant = perDemande;
     } else {
-      // Même au plancher (rémunération minimale), ce PER dépasse le budget : la rémunération reste
-      // au plancher (limite absolue, jamais franchie) et c'est le PER qui se réduit pour compenser.
-      remuCourante = remuMin;
-      function coutTotalAuPlancher(per){
-        const c = chargesGerance(remuMin, sante_ind, madelin_prev, per, caisse_ro);
-        return remuMin + c.charges + sante_ind + madelin_prev + per;
+      // PER demandé > PER du point d'équilibre : on est "hors budget" par décision du client (il a
+      // explicitement demandé plus de capitalisation que ce que permet le budget initial). On abandonne
+      // la contrainte de budget : on cherche la rémunération dont le plafond légal correspond exactement
+      // au PER demandé (mêmes règles de calcul partout — assiette élargie, réintégration Madelin —
+      // seul le critère d'arrêt change). L'écart au budget, devenu négatif, est simplement affiché tel quel.
+      // Recherche par dichotomie de la rémunération telle que plafonds(rémunération).ret_max = perDemande.
+      // (la fonction plafond est croissante en rémunération, donc une dichotomie simple converge)
+      let loR2 = remuOpt, hiR2 = Math.max(remuMax, perDemande*10, remuOpt*3, 1);
+      for(let i=0;i<60;i++){
+        const mid = (loR2+hiR2)/2;
+        if(plafonds(mid).ret_max < perDemande) loR2 = mid; else hiR2 = mid;
       }
-      if(coutTotalAuPlancher(0) > budgetCible){
-        perCourant = 0; // même PER=0 dépasse déjà le budget au plancher : on ne peut pas faire mieux
-      } else {
-        let loP2 = 0, hiP2 = perDemande;
-        for(let i=0;i<60;i++){
-          const mid = (loP2+hiP2)/2;
-          if(coutTotalAuPlancher(mid) < budgetCible) loP2 = mid; else hiP2 = mid;
-        }
-        perCourant = (loP2+hiP2)/2;
-      }
+      remuCourante = (loR2+hiR2)/2;
+      perCourant = perDemande;
     }
   } else {
     // Optimisation ou Rémunération prioritaire (ou premier chargement) : comportement existant.
@@ -1090,22 +1114,60 @@ function renderRubricOptim(d){
   const pctCourant = remuOpt>0 ? (remuCourante/remuOpt*100) : 0;
 
   // Resynchroniser les deux curseurs Rémunération / Optimisation + leurs champs de saisie
+  // (la borne haute du slider Rémunération s'étend si remuCourante la dépasse déjà — cas
+  // "hors budget" où la rémunération doit suivre un PER élevé au-delà de remuMax théorique).
+  const remuMaxAffiche = Math.max(remuMax, remuCourante);
   elPct.min = 0; elPct.max = pctMax;
   elPct.value = pctCourant; inPct.value = Math.round(pctCourant*10)/10;
-  elRemu.min = Math.round(remuMin); elRemu.max = Math.round(remuMax);
+  elRemu.min = Math.round(remuMin); elRemu.max = Math.round(remuMaxAffiche);
   elRemu.value = Math.round(remuCourante); inRemu.value = Math.round(remuCourante);
 
   document.getElementById('optim_pct_min_label').textContent = `${pctMin.toFixed(0)} % (net salarié actuel)`;
-  document.getElementById('optim_pct_label').textContent =
-    Math.abs(pctCourant-100)<0.5 ? '100 % — point d\'équilibre' : `${pctCourant.toFixed(0)} %`;
+  (function setPctMessage(){
+    const el = document.getElementById('optim_pct_label');
+    const tol = 0.5;
+    const pctTxt = pctCourant.toFixed(0);
+    if(Math.abs(pctCourant - pctMin) <= tol){
+      el.textContent = `${pctTxt} % - Optimisation réduite, économie maximale.`;
+    } else if(Math.abs(pctCourant - 100) <= tol){
+      el.textContent = `100 % - Point équilibre : Rémunération et PER optimisés à budget constant.`;
+    } else if(pctCourant < 100){
+      el.textContent = `${pctTxt} % - Ratio Rémunération vs PER.`;
+    } else {
+      el.textContent = `${pctTxt} % - Hors zone d'optimisation, budget salarié dépassé.`;
+    }
+  })();
   document.getElementById('optim_remu_min_label').textContent = fmt(remuMin);
   document.getElementById('optim_remu_max_label').textContent = fmt(remuMax);
-  document.getElementById('optim_remu_label').textContent = fmt(remuCourante);
+  (function setRemuMessage(){
+    const el = document.getElementById('optim_remu_label');
+    const tol = Math.max(1, remuMax*0.005);
+    const remuTxt = fmt(remuCourante);
+    if(Math.abs(remuCourante - remuMin) <= tol){
+      el.textContent = `${remuTxt} - Rémunération identique au statut salarié.`;
+    } else if(Math.abs(remuCourante - window._remuMaxBudget()) <= tol){
+      el.textContent = `${remuTxt} - Rémunération de gérance maximisée à budget constant.`;
+    } else if(remuCourante < window._remuMaxBudget()){
+      el.textContent = `${remuTxt} - Rémunération intermédiaire.`;
+    } else {
+      el.textContent = `${remuTxt} - Rémunération à budget supérieur au statut salarié.`;
+    }
+  })();
 
   // ── Plafond PER recalculé sur la rémunération courante (définitive)
   const perMaxCourant = plafonds(remuCourante).ret_max;
-  elPer.max = Math.round(perMaxCourant);
-  inPer.max = Math.round(perMaxCourant);
+  // Borne HAUTE du curseur (slider) : FIXE, basée sur le PER au point d'équilibre (remuOpt), pas sur
+  // perMaxCourant qui varie à chaque pas. Une borne dynamique proportionnelle à la rémunération
+  // courante créait une boucle d'amplification : glisser le PER fait monter la rémunération (cf.
+  // règle "hors budget"), qui fait monter le plafond, qui fait monter encore la borne — la barre
+  // s'allongeait sous le curseur à chaque pixel de glissement, donnant l'impression que le curseur
+  // ne bougeait quasiment pas. Avec une borne fixe (perOpt x 3 ici, marge confortable), la barre
+  // reste stable pendant la manipulation ; au-delà de cette borne, la saisie manuelle (champ
+  // numérique, non bornée) prend le relais pour viser plus haut.
+  const perOpt = plafonds(remuOpt).ret_max;
+  const perMaxSlider = Math.max(perMaxCourant, perOpt * 3);
+  elPer.max = Math.round(perMaxSlider);
+  inPer.max = Math.round(Math.max(perMaxCourant, perOpt * 3)); // borne large indicative ; la saisie manuelle reste de fait non plafonnée par la logique de calcul elle-même
 
   // Coût total pour un montant de PER donné, avec l'assiette réintégrée qui inclut CE PER
   // (dépendance circulaire : charges dépend du PER, qui dépend lui-même du budget restant après
@@ -1135,14 +1197,30 @@ function renderRubricOptim(d){
     }
   }
   elPer.value = Math.round(perCourant); inPer.value = Math.round(perCourant);
-  document.getElementById('optim_per_label').textContent = fmt(perCourant);
+  (function setPerMessage(){
+    const el = document.getElementById('optim_per_label');
+    const tol = Math.max(1, perMaxCourant*0.005);
+    const perTxt = fmt(perCourant);
+    if(perCourant <= tol){
+      el.textContent = `0 € - Pas de capitalisation retraite complémentaire.`;
+    } else if(Math.abs(perMaxCourant - perCourant) <= tol){
+      el.textContent = `${perTxt} - Capitalisation PER maximisée à budget constant.`;
+    } else {
+      el.textContent = `${perTxt} - Capitalisation retraite intermédiaire.`;
+    }
+  })();
   document.getElementById('optim_per_max_label').textContent = fmt(perMaxCourant) + ' (plafond max)';
 
   // ── Calcul final des charges (base élargie réintégrant Santé + Prévoyance + PER courant)
   // et du coût total pour la rémunération + PER courants
   const { charges: chargesFinal, taux: tauxFinal, base: baseFinal } = chargesGerance(remuCourante, sante_ind, madelin_prev, perCourant, caisse_ro);
   const cout_total = remuCourante + chargesFinal + sante_ind + madelin_prev + perCourant;
-  const ecart = budgetCible - cout_total;
+  let ecart = budgetCible - cout_total;
+  // Un résidu de calcul de quelques centimes/euros peut subsister après convergence (dichotomie,
+  // itération du bouton OPTI PER...) : on l'arrondit à 0 € pile s'il est négligeable, pour éviter
+  // d'afficher "-1 €" ou "+1 €" par un simple effet d'arrondi alors qu'on est en réalité exactement
+  // au point d'équilibre voulu.
+  if(Math.abs(ecart) < 5) ecart = 0;
   const ecartColor = Math.abs(ecart) < 50 ? '#1E6E3E' : (ecart > 0 ? '#1E6E3E' : '#8B1A1A');
 
   document.getElementById('rubric-optim-cards').innerHTML = `
@@ -1200,22 +1278,23 @@ function resetForm(){
 
 // ── Export Word ──────────────────────────────────────────────────────────────
 async function exportWord(){
-  const btn = document.getElementById('btn-export');
-  btn.disabled = true;
-  btn.textContent = '⏳ Chargement du module Word...';
+  const btnIds = ['btn-export', 'btn-export-top', 'btn-export-bottom'];
+  const btns = btnIds.map(id => document.getElementById(id)).filter(Boolean);
+  const setBtnState = (disabled, text) => btns.forEach(b => { b.disabled = disabled; b.textContent = text; });
+
+  setBtnState(true, '⏳ Chargement du module Word...');
   try {
     await window.__docxLoadPromise;
     if(typeof docx === 'undefined' || !docx.Document){
       throw new Error('Module Word indisponible. Les CDN (cdnjs, unpkg, jsdelivr) semblent bloqués par le réseau. Essaie depuis un autre réseau (4G mobile) pour confirmer, ou contacte ton service informatique pour autoriser ces domaines.');
     }
     try{ await window.__jszipLoadPromise; }catch(e){ /* JSZip optionnel : sans lui, on saute juste le post-correctif */ }
-    btn.textContent = '⏳ Génération en cours...';
+    setBtnState(true, '⏳ Génération en cours...');
     await generateWord();
   } catch(e) {
     alert('Erreur lors de la génération : ' + e.message);
   }
-  btn.disabled = false;
-  btn.textContent = '📄 Exporter la synthèse Word';
+  setBtnState(false, '📄 Générer synthèse Word');
 }
 
 async function generateWord(){
