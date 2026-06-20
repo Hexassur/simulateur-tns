@@ -658,13 +658,13 @@ function compute(){
 
   const sal = salCot(brut);
   const cout_sal_reel = cout_total; // coût total société = la seule référence côté salarié
-  const madelin_total = madelin_ret + madelin_prev;
+  const madelin_total = madelin_ret + madelin_prev + sante_ind;
 
   // ── Calcul TNS via table de référence (taux de charge par tranche × caisse)
   const taux_charge = tauxRO(remu_gerance, caisse_ro);
   const cotis_oblig = taux_charge!==null ? remu_gerance * taux_charge : 0;
   const tns_net = remu_gerance;
-  const cout_tns_reel = tns_net + cotis_oblig + madelin_total + sante_ind;
+  const cout_tns_reel = tns_net + cotis_oblig + madelin_total;
 
   // Affichage info taux appliqué
   document.getElementById('taux-ro-info').innerHTML = taux_charge!==null
@@ -702,8 +702,16 @@ function compute(){
         <div class="mv ${av>=0?'green':'red'}">${fmt(Math.abs(av))}</div>
         <div class="ms">par an vs salarié</div></div>`;
 
-    // Marge de rémunération mensuelle possible (hors PER) : économie convertie en supplément de rémunération
-    const margeMensuelleHorsPer = av > 0 ? av / 12 : 0;
+    // Marge de rémunération mensuelle possible (hors PER) : on cherche par itération la
+    // rémunération de gérance maximale telle que remu + charges_oblig(remu) + santé + prévoyance = budget salarié.
+    // (sans recalcul de tranche, av/12 sous-estime/surestime la marge réelle car le taux de charge change avec la tranche)
+    let remuOptHorsPer = coutSalRef * 0.6;
+    for(let i=0;i<40;i++){
+      const cot = remuOptHorsPer * (tauxRO(remuOptHorsPer, caisseRo) ?? 0.45);
+      remuOptHorsPer = coutSalRef - cot - (santeInd||0) - (madelinPrev||0);
+      if(remuOptHorsPer < 0) remuOptHorsPer = 0;
+    }
+    const margeMensuelleHorsPer = netSalRef!==null ? Math.max(0, (remuOptHorsPer - netSalRef) / 12) : 0;
 
     // Marge de rémunération mensuelle possible avec PER optimisé au max (point d'équilibre)
     let remuOptPer = coutSalRef * 0.6;
@@ -817,7 +825,7 @@ function renderRubricBudget(d){
   }
 
   // Métriques + verdict communs, calculés pour cette rubrique
-  window.renderMetricsVerdict('metrics', 'verdict', remu, cout_tns_b, net_sal, cout_sal_reel, madelin_prev + per_b, caisse_ro, sante_ind, madelin_prev);
+  window.renderMetricsVerdict('metrics', 'verdict', remu, cout_tns_b, net_sal, cout_sal_reel, sante_ind + madelin_prev + per_b, caisse_ro, sante_ind, madelin_prev);
 }
 
 // ── Rubrique 2 : Budget constant, optimisation retraite ──────────────────────
@@ -881,7 +889,7 @@ function renderRubricRetraite(d){
       <div class="cline si" style="font-style:italic;color:#AAA;font-size:11px"><span class="cn">Les TNS peuvent accéder aux dispositifs d'épargne salariale s'ils sont mis en place pour les salariés.</span><span class="cv"></span></div>
     </div>`;
 
-  window.renderMetricsVerdict('metrics-retraite', 'verdict-retraite', remu, cout_total_r, net_sal, cout_sal_reel, madelin_prev + per_r, caisse_ro, sante_ind, madelin_prev);
+  window.renderMetricsVerdict('metrics-retraite', 'verdict-retraite', remu, cout_total_r, net_sal, cout_sal_reel, sante_ind + madelin_prev + per_r, caisse_ro, sante_ind, madelin_prev);
 
   document.getElementById('rubric-retraite-note').textContent =
     `Le PER est toujours calculé au plafond maximum déductible pour la rémunération affichée (10 % × rémunération + 15 % × fraction entre 1 et 8 PASS). Au point optimal (curseur à 100 %), l'écart au budget est proche de 0. En déplaçant le curseur, la rémunération varie et le PER se recalcule automatiquement à son nouveau plafond — l'écart au budget peut alors devenir positif (économie) ou négatif (dépassement).`;
